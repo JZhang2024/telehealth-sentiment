@@ -1,4 +1,4 @@
-# CSE 4940 2023 Fall
+# CSE 4940 2023 Fall Team 32
 Basic outline to get you started with your repo.
 
 ## Issues Tab
