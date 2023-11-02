@@ -17,6 +17,9 @@
             -->
             <RouterLink :to="{ name: 'form' }">Form Example</RouterLink>
           </li>
+          <li>
+            <RouterLink to="/video">Video Example</RouterLink>
+          </li>
         </ul>
       </nav>
     </div>
