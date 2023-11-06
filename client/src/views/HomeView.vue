@@ -1,15 +1,17 @@
 <template>
   <main class="home">
-    <h2>The Home Page</h2>
-    <p>
-      This application includes this home page, a page that fetches data, and a
-      page that handles state in a form.
-    </p>
-    <p>
-      These pages, along with the structure of the project, are designed to help
-      you get started solving similar technical challenges, based on the
-      features you are looking to add to your application.
-    </p>
+    <h2>Home</h2>
+        <ul>
+          <li>
+            <RouterLink :to="{ name: 'host' }" class="host">Host</RouterLink>
+          </li>
+          <li>
+            <RouterLink :to="{ name: 'join' }" class="join">Join</RouterLink>
+          </li>
+          <li>
+            <RouterLink :to="{ name: 'video' }" class="video">Video Test</RouterLink>
+          </li>
+        </ul>
   </main>
 </template>
 
