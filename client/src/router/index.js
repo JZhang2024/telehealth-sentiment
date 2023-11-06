@@ -3,8 +3,8 @@
 // we start by importing the createRouter and createWebHistory functions, as well as the components describing each of our views
 import { createRouter, createWebHistory } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
-import FormView from '../views/FormView.vue';
-import FetchView from '../views/FetchView.vue';
+import HostView from '../views/HostView.vue';
+import JoinView from '../views/JoinView.vue';
 import VideoView from '../views/VideoView.vue';
 
 const router = createRouter({
@@ -27,18 +27,18 @@ const router = createRouter({
       component: HomeView
     },
     {
-      path: '/form',
-      name: 'form',
-      component: FormView
+      path: '/host',
+      name: 'host',
+      component: HostView
     },
     {
-      path: '/fetch',
-      name: 'fetch',
-      component: FetchView
+      path: '/join',
+      name: 'join',
+      component: JoinView
     },
     {
       path: '/video',
-      name: 'fetch',
+      name: 'video',
       component: VideoView
     }
   ]
