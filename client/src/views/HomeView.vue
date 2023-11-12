@@ -19,6 +19,8 @@ export default {
       this.$router.push({ name: 'join' });
     },
   },
+
+  
 };
 </script>
 
@@ -38,13 +40,15 @@ export default {
 
 .home_button {
   background-color: #ffffff; /* Green */
-  border: 2px solid #3BB017;
+  border: 5px solid #3BB017;
   border-radius: 10px;
 
   color: #000000;
 
   padding: 15px 32px;
-  font-size: 16px;
+  font-size: 100px;
+  height: 350px;
+  width: 275px;
 
   text-align: center;
   text-decoration: none;
@@ -63,8 +67,8 @@ export default {
   display: flex;
   align-items: center; /* Center items horizontally */
   justify-content: center; /* Center items vertically */
-  margin-top: 20px; /* Adjust as needed */
-  gap: 20px
+  margin-top: 150px; /* Adjust as needed */
+  gap: 100px
 }
 </style>
 
