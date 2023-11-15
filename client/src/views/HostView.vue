@@ -5,6 +5,7 @@
         <transcript-box-component></transcript-box-component>
       </div>
       <sidebar-component></sidebar-component>
+      <room-code-component></room-code-component>
     </div>
   </template>
   
@@ -12,12 +13,14 @@
   import VideoComponent from '../components/VideoComponent.vue';
   import SidebarComponent from '../components/SidebarComponent.vue';
   import TranscriptBoxComponent from '../components/TranscriptBoxComponent.vue';
+  import RoomCodeComponent from '../components/RoomCodeComponent.vue';
   
   export default {
     components: {
       VideoComponent,
       SidebarComponent,
-      TranscriptBoxComponent
+      TranscriptBoxComponent,
+      RoomCodeComponent
     }
   }
   </script>
