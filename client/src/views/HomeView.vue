@@ -1,6 +1,6 @@
 <template>
+  <NavbarComponent/>
   <main class="home">
-    <h2>Home</h2>
     <div class="home_buttons">
       <button @click="host" class="home_button">Host</button>
       <button @click="join" class="home_button">Join</button>
@@ -10,7 +10,12 @@
 </template>
 
 <script>
+import NavbarComponent from '../components/NavbarComponent.vue';
+
 export default {
+  components: {
+    NavbarComponent
+  },
   methods: {
     host() {
       this.$router.push({ name: 'host' });
