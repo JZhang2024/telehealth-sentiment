@@ -1,5 +1,7 @@
 <template>
-    <div id="container">
+  <NavbarComponent/>
+      <div id="container">
+      
       <div id="input-group">
         <label for="room-code" >Room Code:</label>
         <input type="text" id="room-code" v-model="roomCode" placeholder="XXXXXX" maxlength="6"/> 
@@ -9,20 +11,24 @@
   </template>
   
   <script>
+  import NavbarComponent from '../components/NavbarComponent.vue';
+
   export default {
     name: 'RoomCodeEntryComponent',
+    components: NavbarComponent,
     data() {
-      return {
-        roomCode: ''
-      };
+        return {
+            roomCode: ''
+        };
     },
     methods: {
-      enterRoom() {
-        console.log("Entered Room Code: ", this.roomCode);
-        // logic for handling room code ** TO BE ADDED WHEN WE FIGURE IT OUT **
-      }
-    }
-  }
+        enterRoom() {
+            console.log("Entered Room Code: ", this.roomCode);
+            // logic for handling room code ** TO BE ADDED WHEN WE FIGURE IT OUT **
+        }
+    },
+    components: { NavbarComponent }
+}
   </script>
   
   <style scoped>

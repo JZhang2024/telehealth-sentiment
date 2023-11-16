@@ -3,9 +3,15 @@
 // we start by importing the createRouter and createWebHistory functions, as well as the components describing each of our views
 import { createRouter, createWebHistory } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
+import AboutView from '../views/AboutView.vue';
+import ContactView from '../views/ContactView.vue'
+
 import HostView from '../views/HostView.vue';
 import JoinView from '../views/JoinView.vue';
+
 import VideoView from '../views/VideoView.vue';
+
+
 
 const router = createRouter({
   // the history mode determines how vue router interacts with the url.
@@ -25,6 +31,16 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView
+    },
+    {
+      path: '/about',
+      name: 'about',
+      component: AboutView
+    },
+    {
+      path: '/contact',
+      name: 'contact',
+      component: ContactView
     },
     {
       path: '/host',
