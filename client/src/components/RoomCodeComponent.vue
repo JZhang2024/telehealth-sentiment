@@ -1,13 +1,18 @@
 <template>
   <div class="room-code">
-    <p>Room Code: ABC123</p> <!-- Replace with dynamic code as needed -->
+    <p>Room Code: {{ code }}</p>
   </div>
 </template>
 
 <script>
 export default {
-  name: 'RoomCodeComponent'
-  // Other component options
+  name: 'RoomCodeComponent',
+  props: {
+    code: {
+      type: String,
+      required: true,
+    }
+  },
 }
 </script>
 
