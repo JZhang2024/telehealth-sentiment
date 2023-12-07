@@ -1,12 +1,5 @@
 <template>
     <div id="main-container">
-      <!-- <div id="video-transcript-container"> -->
-        <!-- <video-component></video-component> -->
-        <!-- <div class="video-container"> -->
-            <!-- <video controls> -->
-            <!-- <source src="https://sample-videos.com/video123/mp4/480/big_buck_bunny_480p_5mb.mp4" type="video/mp4"> -->
-            <!-- Your browser does not support the video tag. -->
-            <!-- </video> -->
             <div id="meeting">
                 <div class="content-video">
                 <video
@@ -33,13 +26,10 @@
                     Turn {{ isMicrophoneOn ? "Off" : "On" }} Microphone
                 </button>
                 <br>
-                <!-- <button @click="leave">Leave Channel</button> -->
                 </div>
+            <transcript-box-component></transcript-box-component>
             </div>
-        <!-- </div>
-        <transcript-box-component></transcript-box-component>
-      </div>
-      <sidebar-component></sidebar-component> -->
+      <sidebar-component></sidebar-component>
       <room-code-component :code=this.roomCode></room-code-component>
     </div>
 </template>
@@ -192,11 +182,13 @@ onUnmounted(() => {
 </script>
   
 <style lang="less">
-// #main-container {
-// display: flex;
-// height: 100vh;
-// border: 1px solid black;
-// }
+#main-container {
+display: flex;
+height: 100vh;
+border: 1px solid black;
+}
+
+
 
 #video-transcript-container {
 display: flex;
@@ -204,15 +196,15 @@ flex-direction: column;
 width: 75%;
 }
 
-// .video-container {
-//   width: 100%;
-//   height: 75vh;
-//   border: 2px solid blue; 
-// }
-// .video-container video {
-//   width: 100%;
-//   height: 100%;
-// }
+.video-container {
+  width: 100%;
+  height: 75vh;
+  border: 2px solid blue; 
+}
+.video-container video {
+  width: 100%;
+  height: 100%;
+}
 
 #meeting {
   width: 100%;
