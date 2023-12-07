@@ -10,26 +10,40 @@
     </div>
   </template>
   
-  <script>
-  import NavbarComponent from '../components/NavbarComponent.vue';
+<script lang="ts">
+import NavbarComponent from '../components/NavbarComponent.vue';
+import {
+  agoraInfo,
+  appid,
+  channel,
+  videoCodec
+} from "./storage";
+import { createClient } from "agora-rtc-sdk-ng/esm";
 
-  export default {
-    name: 'RoomCodeEntryComponent',
-    components: NavbarComponent,
-    data() {
-        return {
-            roomCode: ''
-        };
-    },
-    methods: {
-        enterRoom() {
-            console.log("Entered Room Code: ", this.roomCode);
-            // logic for handling room code ** TO BE ADDED WHEN WE FIGURE IT OUT **
-        }
-    },
-    components: { NavbarComponent }
+
+export default {
+  name: 'RoomCodeEntryComponent',
+  components: NavbarComponent,
+  data() {
+      return {
+          roomCode: ''
+      };
+  },
+  methods: {
+      async enterRoom() {
+        console.log("Entered Room Code: ", this.roomCode);
+        const client = createClient({ mode: "rtc", codec: videoCodec.value });
+
+        await client.join(appid.value, this.roomCode, null, null);
+
+        agoraInfo.client = client;
+        
+        // logic for handling room code ** TO BE ADDED WHEN WE FIGURE IT OUT **
+        this.$router.push({ name: "room", query: { code: this.roomCode }});            
+      }
+  },
 }
-  </script>
+</script>
   
   <style scoped>
   #container {

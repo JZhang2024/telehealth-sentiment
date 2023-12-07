@@ -4,14 +4,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import AboutView from '../views/AboutView.vue';
-import ContactView from '../views/ContactView.vue'
+import ContactView from '../views/ContactView.vue';
 
 import HostView from '../views/HostView.vue';
 import JoinView from '../views/JoinView.vue';
 
 import VideoView from '../views/VideoView.vue';
-
-
+import RoomView from '../views/RoomView.vue';
 
 const router = createRouter({
   // the history mode determines how vue router interacts with the url.
@@ -56,6 +55,11 @@ const router = createRouter({
       path: '/video',
       name: 'video',
       component: VideoView
+    },
+    {
+      path: '/room',
+      name: 'room',
+      component: RoomView
     }
   ]
 });
