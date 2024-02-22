@@ -30,7 +30,7 @@
             <transcript-box-component></transcript-box-component>
             </div>
       <sidebar-component></sidebar-component>
-      <room-code-component :code=this.roomCode></room-code-component>
+      <room-code-component v-if="roomCode" :code="roomCode"></room-code-component>
     </div>
 </template>
 
