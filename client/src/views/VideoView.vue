@@ -9,7 +9,6 @@
 <script lang="ts">
 import { ref, onMounted } from 'vue';
 import io from 'socket.io-client';
-
 export default {
   name: 'VideoView',
   setup() {
@@ -18,28 +17,23 @@ export default {
     const localVideo = ref(null);
     const remoteVideo = ref(null);
     let otherUserId = null;
-
     onMounted(async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localVideo.value.srcObject = stream;
       stream.getTracks().forEach(track => localConnection.addTrack(track, stream));
     });
-
     localConnection.onicecandidate = event => {
       if (event.candidate && otherUserId) {
         socket.emit('ice-candidate', event.candidate, otherUserId);
       }
     };
-
     localConnection.ontrack = event => {
       remoteVideo.value.srcObject = event.streams[0];
     };
-
     socket.on('other-user', userId => {
       otherUserId = userId;
       startCall();
     });
-
     socket.on('offer', async (offer, fromSocketId) => {
       otherUserId = fromSocketId;
       const remoteOffer = new RTCSessionDescription(offer);
@@ -48,16 +42,13 @@ export default {
       await localConnection.setLocalDescription(answer);
       socket.emit('answer', answer, fromSocketId);
     });
-
     socket.on('answer', async answer => {
       const remoteAnswer = new RTCSessionDescription(answer);
       await localConnection.setRemoteDescription(remoteAnswer);
     });
-
     socket.on('ice-candidate', candidate => {
       localConnection.addIceCandidate(new RTCIceCandidate(candidate));
     });
-
     const startCall = async () => {
       if (otherUserId) {
         const offer = await localConnection.createOffer();
@@ -65,7 +56,6 @@ export default {
         socket.emit('offer', offer, otherUserId);
       }
     };
-
     return {
       localVideo,
       remoteVideo,
