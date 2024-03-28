@@ -1,16 +1,9 @@
-// this file creates the router instance that is used by our application
-
-// we start by importing the createRouter and createWebHistory functions, as well as the components describing each of our views
+import AboutView from '@/views/AboutView.vue';
+import HomeView from '@/views/HomeView.vue';
+import JoinView from '@/views/JoinView.vue';
+import RoomView from '@/views/RoomView.vue';
+import ContactView from '@/views/ContactView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
-import HomeView from '../views/HomeView.vue';
-import AboutView from '../views/AboutView.vue';
-import ContactView from '../views/ContactView.vue';
-
-import HostView from '../views/HostView.vue';
-import JoinView from '../views/JoinView.vue';
-
-import VideoView from '../views/VideoView.vue';
-import RoomView from '../views/RoomView.vue';
 
 const router = createRouter({
   // the history mode determines how vue router interacts with the url.
@@ -28,38 +21,23 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
       component: HomeView
     },
     {
+      path: '/join',
+      component: JoinView
+    },
+    {
+      path: '/room/:channelName',
+      component: RoomView
+    },
+    {
       path: '/about',
-      name: 'about',
       component: AboutView
     },
     {
       path: '/contact',
-      name: 'contact',
       component: ContactView
-    },
-    {
-      path: '/host',
-      name: 'host',
-      component: HostView
-    },
-    {
-      path: '/join',
-      name: 'join',
-      component: JoinView
-    },
-    {
-      path: '/video',
-      name: 'video',
-      component: VideoView
-    },
-    {
-      path: '/room',
-      name: 'room',
-      component: RoomView
     }
   ]
 });

@@ -1,103 +1,52 @@
-<template>
-  <NavbarComponent/>
-  <main class="home">
-    <div class="home_buttons">
-      <button @click="host" class="home_button">Host</button>
-      <button @click="join" class="home_button">Join</button>
-    </div>
-    <!-- <RouterLink :to="{ name: 'video' }" class="video">Video Test</RouterLink> -->
-  </main>
-</template>
+<script setup lang="ts">
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import router from '@/router';
+import Navbar from '@/components/Navbar.vue';
 
-<script lang="ts">
-import NavbarComponent from '../components/NavbarComponent.vue';
-import {
-  agoraInfo,
-  appid,
-  channel,
-  videoCodec
-} from "./storage";
-import { createClient } from "agora-rtc-sdk-ng/esm";
+function makeCode(length: number) {
+  let result = '';
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const charactersLength = characters.length;
+  let counter = 0;
+  while (counter < length) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    counter += 1;
+  }
+  return result;
+}
 
-export default {
-  components: {
-    NavbarComponent
-  },
-  methods: {
-    async host() {
-      let roomCode = makeid(6);
-      const client = createClient({ mode: "rtc", codec: videoCodec.value });
-
-      await client.join(appid.value, roomCode, null, null);
-
-      agoraInfo.client = client;
-      this.$router.push({ name: 'room', query: { code: roomCode }});
-    },
-    join() {
-      this.$router.push({ name: 'join' });
-    },
-  },
-
-  
-};
-
-function makeid(length) {
-    let result = '';
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const charactersLength = characters.length;
-    let counter = 0;
-    while (counter < length) {
-      result += characters.charAt(Math.floor(Math.random() * charactersLength));
-      counter += 1;
-    }
-    return result;
+function handleHost() {
+  const roomCode = makeCode(6);
+  router.push(`/room/${roomCode}`);
 }
 </script>
 
-<style>
-.home {
-  padding: 1rem;
-}
+<template>
+  <div class="flex min-h-screen w-full flex-col">
+    <Navbar currentSection="home" />
 
-.home h2 {
-  font-size: 1.5rem;
-  margin-bottom: 2rem;
-}
+    <div class="flex-grow flex items-center justify-center">
+      <Card class="w-[512px]">
+        <CardHeader>
+          <CardTitle class="mx-auto">Welcome to Telehealth!</CardTitle>
+          <CardDescription class="mx-auto">
+            A communication tool for doctors to effectively diagnose patients.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div class="grid gap-4">
+            <img src="../assets/cigna.png" class="mx-auto p-2 w-[50%]" alt="React Logo" />
 
-.home p {
-  margin-bottom: 1rem;
-}
-
-.home_button {
-  background-color: #ffffff; /* Green */
-  border: 5px solid #3BB017;
-  border-radius: 10px;
-
-  color: #000000;
-
-  padding: 15px 32px;
-  font-size: 100px;
-  height: 350px;
-  width: 275px;
-
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  
-  transition-duration: 0.4s;
-}
-
-
-.home_button:hover {
-  background-color: #3BB017; /* Green */
-  color: white;
-}
-
-.home_buttons {
-  display: flex;
-  align-items: center; /* Center items horizontally */
-  justify-content: center; /* Center items vertically */
-  margin-top: 150px; /* Adjust as needed */
-  gap: 100px
-}
-</style>
+            <div class="space-x-4 mt-2 mx-auto">
+              <RouterLink to="/join">
+                <Button>Join Room</Button>
+              </RouterLink>
+              <Button variant="secondary" @click="handleHost">Host Room</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+</template>

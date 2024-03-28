@@ -1,89 +1,45 @@
-<template>
-  <NavbarComponent/>
-      <div id="container">
-      
-      <div id="input-group">
-        <label for="room-code" >Room Code:</label>
-        <input type="text" id="room-code" v-model="roomCode" placeholder="XXXXXX" maxlength="6"/> 
-      </div>
-      <button @click="enterRoom">Enter</button>
-    </div>
-  </template>
-  
-<script lang="ts">
-import NavbarComponent from '../components/NavbarComponent.vue';
-import {
-  agoraInfo,
-  appid,
-  channel,
-  videoCodec
-} from "./storage";
-import { createClient } from "agora-rtc-sdk-ng/esm";
+<script setup lang="ts">
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import router from '@/router';
+import { onUpdated, ref } from 'vue';
 
+const invalidInputMsg = ref('');
+const channelName = ref('');
 
-export default {
-  name: 'RoomCodeEntryComponent',
-  components: NavbarComponent,
-  data() {
-      return {
-          roomCode: ''
-      };
-  },
-  methods: {
-      async enterRoom() {
-        console.log("Entered Room Code: ", this.roomCode);
-        const client = createClient({ mode: "rtc", codec: videoCodec.value });
+function handleConnect(e: Event) {
+  // trim spaces
+  const trimmedChannelName = channelName.value.trim();
 
-        await client.join(appid.value, this.roomCode, null, null);
+  // validate input: make sure channelName is not empty
+  if (trimmedChannelName === '') {
+    e.preventDefault(); // keep the page from reloading on form submission
+    invalidInputMsg.value = 'Room code cannot be empty.'; // show warning
+    channelName.value = ''; // resets channel name value in case user entered blank spaces
+    return;
+  } else if (trimmedChannelName.length != 6) {
+    e.preventDefault();
+    invalidInputMsg.value = 'Room code must be 6 characters long.';
+    channelName.value = '';
+    return;
+  }
 
-        agoraInfo.client = client;
-        
-        // logic for handling room code ** TO BE ADDED WHEN WE FIGURE IT OUT **
-        this.$router.push({ name: "room", query: { code: this.roomCode }});            
-      }
-  },
+  router.push(`/room/${trimmedChannelName}`);
 }
 </script>
-  
-  <style scoped>
-  #container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-  }
-  
-  #input-group {
-    display: flex;
-    align-items: center;
-    margin-bottom: 30px; /* Spacing between input group and button */
-    font-size: 25px;
-  }
-  
-  #input-group label {
-    margin-right: 20px;
-  }
-  
-  #input-group input {
-    border: 2px solid #3BB017;
-    padding: 5px;
-    border-radius: 10px;
-    width: 10ch;
-  }
-  
-  button {
-    border: 2px solid #3BB017;
-    padding: 10px 20px;
-    cursor: pointer;
-    background-color: white;
-    /* Additional styling as needed */
-    transition-duration: 0.4s;
-    border-radius: 10px;
-  }
 
-  button:hover {
-    background-color: #3BB017
-  }
-  </style>
-  
+<template>
+  <div class="flex items-center justify-center h-screen">
+    <form class="w-96">
+      <div class="space-y-2">
+        <p v-if="invalidInputMsg" className="font-medium text-red-400 mb-2">
+          {{ invalidInputMsg }}
+        </p>
+        <Label>Room Code</Label>
+        <Input type="text" placeholder="XXXXXX" v-model="channelName" />
+      </div>
+      <Button class="mt-4" @click="handleConnect">Join</Button>
+    </form>
+  </div>
+</template>

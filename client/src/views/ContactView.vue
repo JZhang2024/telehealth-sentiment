@@ -1,21 +1,13 @@
-<template>
-    <NavbarComponent/>
-    <h1>Contact</h1>
-</template>
-
-<script>
-import NavbarComponent from '../components/NavbarComponent.vue';
-
-export default {
-    components: {
-        NavbarComponent
-    }, 
-}
+<script setup lang="ts">
+import Navbar from '@/components/Navbar.vue';
 </script>
 
-<style scoped>
-h1 {
-    font-size: 50px;
-}
+<template>
+  <div>
+    <Navbar currentSection="contact" />
 
-</style>
+    <div class="p-4">
+      <h1 class="text-2xl font-semibold">Contact</h1>
+    </div>
+  </div>
+</template>
