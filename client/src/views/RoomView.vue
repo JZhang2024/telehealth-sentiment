@@ -1,21 +1,34 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
 import router from '@/router';
-import { Camera, Mic, MicOff, LogOut, Video, VideoOff } from 'lucide-vue-next';
+import {
+  Camera,
+  Mic,
+  MicOff,
+  LogOut,
+  Video,
+  VideoOff,
+  Captions,
+  CaptionsOff
+} from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   createClient,
   createCameraVideoTrack,
   createMicrophoneAudioTrack,
-  type IAgoraRTCClient,
   type IAgoraRTCRemoteUser,
   type ICameraVideoTrack,
-  type IMicrophoneAudioTrack
+  type IMicrophoneAudioTrack,
+  IRemoteAudioTrack
 } from 'agora-rtc-sdk-ng/esm';
 import axios from 'axios';
 import { useSpeechRecognition } from '@vueuse/core';
-// import { SpeechRecognition } from '@/lib/types';
+import {
+  TranscribeStreamingClient,
+  StartStreamTranscriptionCommand
+} from '@aws-sdk/client-transcribe-streaming';
+import MicrophoneStream from 'microphone-stream';
 
 const appId = '696d19cdaaa045ebb4fafe4f9206068e';
 const route = useRoute();
@@ -26,20 +39,94 @@ const micOn = ref(false);
 const cameraOn = ref(false);
 
 // Track video feeds
-const isRemoteVideoPlaying = ref(false);
-const isLocalVideoAvailable = ref(false);
+const remoteCameraOn = ref(false);
+const remoteMicOn = ref(false);
+const cameraAvailable = ref(false);
+const transcribeOn = ref(false);
 
 // Local audio tracks
 let localMicrophoneTrack: IMicrophoneAudioTrack | null = null;
 let localCameraTrack: ICameraVideoTrack | null = null;
 
+// Remote audio track
+let remoteMicrophoneTrack: IRemoteAudioTrack | undefined;
+
 // Speech recongition
-// let recognition: SpeechRecognition | null = null;
-const speechToText = useSpeechRecognition({
-  lang: 'en-US',
-  interimResults: true,
-  continuous: true
-});
+// const speechToText = useSpeechRecognition({
+//   lang: 'en-US',
+//   interimResults: true,
+//   continuous: true
+// });
+
+let transcribeClient: TranscribeStreamingClient | undefined;
+let micStream: MicrophoneStream;
+
+async function* getAudioStream() {
+  // @ts-ignore
+  for await (const chunk of micStream) {
+    if (chunk.length <= 44100) {
+      yield {
+        AudioEvent: {
+          AudioChunk: encodePCMChunk(chunk)
+        }
+      };
+    }
+  }
+}
+
+function encodePCMChunk(chunk: Buffer) {
+  const input = MicrophoneStream.toRaw(chunk);
+  let offset = 0;
+  const buffer = new ArrayBuffer(input.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < input.length; i++, offset += 2) {
+    let s = Math.max(-1, Math.min(1, input[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return Buffer.from(buffer);
+}
+
+async function startTranscription(audioTrack: MediaStreamTrack) {
+  // Create transcribe client
+  transcribeClient = new TranscribeStreamingClient({
+    region: 'us-east-1',
+    credentials: {
+      accessKeyId: '', // PUT CREDENTIALS HERE
+      secretAccessKey: ''
+    }
+  });
+
+  micStream = new MicrophoneStream();
+  micStream.setStream(new MediaStream([audioTrack]));
+
+  const command = new StartStreamTranscriptionCommand({
+    LanguageCode: 'en-US',
+    MediaSampleRateHertz: 44100,
+    MediaEncoding: 'pcm',
+    AudioStream: getAudioStream()
+  });
+
+  const data = await transcribeClient.send(command);
+  console.log('transcribe command sent');
+  (async () => {
+    for await (const event of data.TranscriptResultStream!) {
+      if (!transcribeOn.value) {
+        break;
+      }
+
+      // @ts-ignore
+      const results = event.TranscriptEvent.Transcript.Results;
+      // @ts-ignore
+      if (results.length && !results[0]?.IsPartial) {
+        // @ts-ignore
+        const newTranscript = results[0].Alternatives[0].Transcript;
+        console.log(newTranscript);
+      }
+    }
+
+    transcribeClient = undefined;
+  })().catch(console.error);
+}
 
 // Agora client info
 const client = createClient({ mode: 'rtc', codec: 'vp8' });
@@ -49,22 +136,30 @@ client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'video'
   // Handle remote video
   if (mediaType === 'video' && user.videoTrack) {
     user.videoTrack.play('remote-video');
-    isRemoteVideoPlaying.value = true;
+    remoteCameraOn.value = true;
   }
   // Handle remote audio
   if (mediaType === 'audio' && user.audioTrack) {
     user.audioTrack.play();
+    remoteMicOn.value = true;
+    remoteMicrophoneTrack = user.audioTrack;
+
+    // console.log('starting transcription');
+    // await startTranscription(user.audioTrack.getMediaStreamTrack());
   }
 });
+
 client.on('user-unpublished', async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
   await client.unsubscribe(user, mediaType);
 
   if (mediaType === 'video') {
     user.videoTrack?.stop();
-    isRemoteVideoPlaying.value = false;
+    remoteCameraOn.value = false;
   }
   if (mediaType === 'audio') {
     user.audioTrack?.stop();
+    remoteMicOn.value = false;
+    remoteMicrophoneTrack = undefined;
   }
 });
 
@@ -75,25 +170,25 @@ async function toggleMic() {
   }
   localMicrophoneTrack.setEnabled(!micOn.value);
 
-  if (micOn.value) {
-    // Stop speech recognition
-    speechToText.stop();
-  } else {
-    // Start speech recognition
-    if (speechToText.recognition) {
-      speechToText.recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map((result) => result[0])
-          .map((result) => result.transcript)
-          .join('');
-        console.log(transcript);
-      };
-      speechToText.recognition.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
-      };
-    }
-    speechToText.start();
-  }
+  // if (micOn.value) {
+  //   // Stop speech recognition
+  //   speechToText.stop();
+  // } else {
+  //   // Start speech recognition
+  //   if (speechToText.recognition) {
+  //     speechToText.recognition.onresult = (event) => {
+  //       const transcript = Array.from(event.results)
+  //         .map((result) => result[0])
+  //         .map((result) => result.transcript)
+  //         .join('');
+  //       console.log(transcript);
+  //     };
+  //     speechToText.recognition.onerror = (event) => {
+  //       console.error('Speech recognition error', event.error);
+  //     };
+  //   }
+  //   speechToText.start();
+  // }
 
   micOn.value = !micOn.value;
 }
@@ -106,6 +201,19 @@ async function toggleCamera() {
   }
   localCameraTrack.setEnabled(!cameraOn.value);
   cameraOn.value = !cameraOn.value;
+}
+
+async function toggleTranscribe() {
+  if (!transcribeOn.value) {
+    if (remoteMicrophoneTrack) {
+      console.log('starting transcription');
+      transcribeOn.value = true;
+      await startTranscription(remoteMicrophoneTrack?.getMediaStreamTrack());
+    }
+  } else {
+    console.log('ending transcription');
+    transcribeOn.value = false;
+  }
 }
 
 async function disconnect() {
@@ -175,10 +283,10 @@ async function captureFrame() {
 }
 
 onMounted(async () => {
-  await client.join(appId, channel as string, null); // TODO: Check
+  await client.join(appId, channel as string, null);
   await toggleCamera();
   await toggleMic();
-  isLocalVideoAvailable.value = true;
+  cameraAvailable.value = true;
 });
 
 onUnmounted(async () => {
@@ -195,19 +303,21 @@ onUnmounted(async () => {
     <div class="flex flex-wrap gap-4 items-center">
       <div class="relative w-[25vw] max-w-[720px] min-w-[480px] overflow-hidden">
         <video id="remote-video" class="aspect-[4/3]" />
-        <Button
-          v-if="isRemoteVideoPlaying"
-          size="icon"
-          class="absolute top-0 right-0 m-3"
-          @click="captureFrame">
-          <Camera class="size-4" />
-        </Button>
+        <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
+          <Button size="icon" @click="captureFrame">
+            <Camera class="size-4" />
+          </Button>
+          <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
+            <Captions v-if="transcribeOn" class="size-4" />
+            <CaptionsOff v-else class="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
     <div class="w-[50vw] max-w-[480px] min-w-[360px] fixed right-6 bottom-6 m-0">
       <video id="local-video" class="aspect-video" />
 
-      <div v-if="isLocalVideoAvailable" class="absolute bottom-0 right-0 m-3 z-[99]">
+      <div v-if="cameraAvailable" class="absolute bottom-0 right-0 m-3 z-[99]">
         <div class="space-x-2">
           <Button size="icon" @click="toggleMic">
             <Mic v-if="micOn" class="size-4" />
