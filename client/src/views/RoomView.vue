@@ -85,6 +85,7 @@ function encodePCMChunk(chunk: Buffer) {
   }
   return Buffer.from(buffer);
 }
+const transcriptionStatus = ref('Transcript:\n');
 
 async function startTranscription(audioTrack: MediaStreamTrack) {
   // Create transcribe client
@@ -121,6 +122,8 @@ async function startTranscription(audioTrack: MediaStreamTrack) {
         // @ts-ignore
         const newTranscript = results[0].Alternatives[0].Transcript;
         console.log(newTranscript);
+        transcriptionStatus.value += '\n' ?? '';
+        transcriptionStatus.value += newTranscript ?? '';
       }
     }
 
@@ -314,6 +317,9 @@ onUnmounted(async () => {
         </div>
       </div>
     </div>
+    <h1 class="text-3xl">Room: {{ channel }}</h1>
+    <p>{{ transcriptionStatus }}</p>
+
     <div class="w-[50vw] max-w-[480px] min-w-[360px] fixed right-6 bottom-6 m-0">
       <video id="local-video" class="aspect-video" />
 
