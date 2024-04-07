@@ -6,7 +6,7 @@ import Navbar from '@/components/Navbar.vue';
   <div>
     <Navbar currentSection="contact" />
 
-    <div class="p-4">
+    <div class="max-w-3xl mx-auto py-10 px-4">
       <h1 class="text-2xl font-semibold">Contact</h1>
     </div>
   </div>

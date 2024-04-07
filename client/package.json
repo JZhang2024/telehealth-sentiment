@@ -12,6 +12,7 @@
     "@aws-sdk/client-transcribe": "^3.540.0",
     "@aws-sdk/client-transcribe-streaming": "^3.540.0",
     "@aws-sdk/credential-providers": "^3.540.0",
+    "@deepgram/sdk": "^3.2.0",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@vueuse/core": "^10.9.0",
     "agora-rtc-sdk-ng": "^4.20.2",

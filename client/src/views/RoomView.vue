@@ -17,11 +17,12 @@ import {
   createClient,
   createCameraVideoTrack,
   createMicrophoneAudioTrack,
+  IRemoteAudioTrack,
   type IAgoraRTCRemoteUser,
   type ICameraVideoTrack,
-  type IMicrophoneAudioTrack,
-  IRemoteAudioTrack
+  type IMicrophoneAudioTrack
 } from 'agora-rtc-sdk-ng/esm';
+import * as deepgram from '@deepgram/sdk';
 import axios from 'axios';
 import { useSpeechRecognition } from '@vueuse/core';
 import {
@@ -29,6 +30,7 @@ import {
   StartStreamTranscriptionCommand
 } from '@aws-sdk/client-transcribe-streaming';
 import MicrophoneStream from 'microphone-stream';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const appId = '696d19cdaaa045ebb4fafe4f9206068e';
 const route = useRoute();
@@ -58,13 +60,17 @@ let remoteMicrophoneTrack: IRemoteAudioTrack | undefined;
 //   continuous: true
 // });
 
+const transcriptionStatus = ref('');
+
 let transcribeClient: TranscribeStreamingClient | undefined;
 let micStream: MicrophoneStream;
+
+const SAMPLE_RATE = 41000;
 
 async function* getAudioStream() {
   // @ts-ignore
   for await (const chunk of micStream) {
-    if (chunk.length <= 44100) {
+    if (chunk.length <= SAMPLE_RATE) {
       yield {
         AudioEvent: {
           AudioChunk: encodePCMChunk(chunk)
@@ -85,14 +91,13 @@ function encodePCMChunk(chunk: Buffer) {
   }
   return Buffer.from(buffer);
 }
-const transcriptionStatus = ref('Transcript:\n');
 
 async function startTranscription(audioTrack: MediaStreamTrack) {
   // Create transcribe client
   transcribeClient = new TranscribeStreamingClient({
     region: 'us-east-1',
     credentials: {
-      accessKeyId: '', // PUT CREDENTIALS HERE
+      accessKeyId: '', // TODO: Remove credentials
       secretAccessKey: ''
     }
   });
@@ -102,7 +107,7 @@ async function startTranscription(audioTrack: MediaStreamTrack) {
 
   const command = new StartStreamTranscriptionCommand({
     LanguageCode: 'en-US',
-    MediaSampleRateHertz: 44100,
+    MediaSampleRateHertz: SAMPLE_RATE,
     MediaEncoding: 'pcm',
     AudioStream: getAudioStream()
   });
@@ -122,6 +127,7 @@ async function startTranscription(audioTrack: MediaStreamTrack) {
         // @ts-ignore
         const newTranscript = results[0].Alternatives[0].Transcript;
         console.log(newTranscript);
+
         transcriptionStatus.value += '\n' ?? '';
         transcriptionStatus.value += newTranscript ?? '';
       }
@@ -129,6 +135,54 @@ async function startTranscription(audioTrack: MediaStreamTrack) {
 
     transcribeClient = undefined;
   })().catch(console.error);
+}
+
+let microphone: MediaRecorder | null;
+async function startDeepgram(audioTrack: MediaStreamTrack) {
+  const dgClient = deepgram.createClient(''); // TODO: Add credentials
+  const connection = dgClient.listen.live({
+    model: 'nova-2',
+    // interim_results: true,
+    smart_format: true
+  });
+
+  microphone = new MediaRecorder(new MediaStream([audioTrack]));
+  await microphone.start(500);
+
+  microphone.onstart = () => {
+    console.log('client: microphone opened');
+    // document.body.classList.add('recording');
+  };
+
+  microphone.onstop = () => {
+    console.log('client: microphone closed');
+    // document.body.classList.remove('recording');
+  };
+
+  microphone.ondataavailable = (e) => {
+    const data = e.data;
+    // console.log('client: sent data to websocket');
+    connection.send(data);
+  };
+
+  connection.on(deepgram.LiveTranscriptionEvents.Open, () => {
+    console.log('connection established');
+    // transcribeOn.value = true;
+  });
+
+  connection.on(deepgram.LiveTranscriptionEvents.Close, () => {
+    console.log('connection closed');
+    // transcribeOn.value = false;
+  });
+
+  connection.on(deepgram.LiveTranscriptionEvents.Transcript, (data) => {
+    // console.log('raw:', data);
+    const words = data.channel.alternatives[0].words;
+    const caption = words.map((word: any) => word.punctuated_word ?? word.word).join(' ');
+    if (caption !== '') {
+      console.log('transciption:', caption);
+    }
+  });
 }
 
 // Agora client info
@@ -212,10 +266,12 @@ async function toggleTranscribe() {
       console.log('starting transcription');
       transcribeOn.value = true;
       await startTranscription(remoteMicrophoneTrack?.getMediaStreamTrack());
+      // await startDeepgram(remoteMicrophoneTrack?.getMediaStreamTrack());
     }
   } else {
     console.log('ending transcription');
     transcribeOn.value = false;
+    // microphone?.stop();
   }
 }
 
@@ -317,8 +373,18 @@ onUnmounted(async () => {
         </div>
       </div>
     </div>
-    <h1 class="text-3xl">Room: {{ channel }}</h1>
-    <p>{{ transcriptionStatus }}</p>
+
+    <div class="mt-4 space-y-2">
+      <h1 class="font-semibold">Room: {{ channel }}</h1>
+      <Card v-if="transcriptionStatus" class="w-[512px]">
+        <CardHeader>
+          <CardTitle>Transcript</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{{ transcriptionStatus }}</p>
+        </CardContent>
+      </Card>
+    </div>
 
     <div class="w-[50vw] max-w-[480px] min-w-[360px] fixed right-6 bottom-6 m-0">
       <video id="local-video" class="aspect-video" />
