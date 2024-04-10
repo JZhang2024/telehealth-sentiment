@@ -33,7 +33,6 @@ import MicrophoneStream from 'microphone-stream';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AWS from 'aws-sdk';
 
-
 const appId = '696d19cdaaa045ebb4fafe4f9206068e';
 const route = useRoute();
 const channel = route.params.channelName;
@@ -62,10 +61,12 @@ let remoteMicrophoneTrack: IRemoteAudioTrack | undefined;
 //   continuous: true
 // });
 
-const transcriptionStatus = ref('');
+const transcriptionStatus = ref<string[]>([]);
 
 let transcribeClient: TranscribeStreamingClient | undefined;
 let micStream: MicrophoneStream;
+let remoteMicStream: MicrophoneStream;
+let localMicStream: MicrophoneStream;
 
 const SAMPLE_RATE = 41000;
 
@@ -94,7 +95,48 @@ function encodePCMChunk(chunk: Buffer) {
   return Buffer.from(buffer);
 }
 
-async function startTranscription(audioTrack: MediaStreamTrack) {
+async function* getAudioStreamDual() {
+  const [iterator1, iterator2] = [
+    // @ts-ignore
+    remoteMicStream[Symbol.asyncIterator](),
+    // @ts-ignore
+    localMicStream[Symbol.asyncIterator]()
+  ];
+  while (true) {
+    const [result1, result2] = await Promise.all([iterator1.next(), iterator2.next()]);
+    if (result1.done || result2.done) break;
+
+    const chunk1 = result1.value;
+    const chunk2 = result2.value;
+
+    // Assuming both chunks have the same length
+    if (chunk1.length <= SAMPLE_RATE && chunk2.length <= SAMPLE_RATE) {
+      yield {
+        AudioEvent: {
+          AudioChunk: encodePCMChunkDual(chunk1, chunk2)
+        }
+      };
+    }
+  }
+}
+
+function encodePCMChunkDual(chunk1: Buffer, chunk2: Buffer) {
+  const input1 = MicrophoneStream.toRaw(chunk1);
+  const input2 = MicrophoneStream.toRaw(chunk2);
+  const buffer = new ArrayBuffer(input1.length * 4); // 2 channels * 2 bytes per sample
+  const view = new DataView(buffer);
+
+  for (let i = 0, offset = 0; i < input1.length; i++, offset += 4) {
+    let s1 = Math.max(-1, Math.min(1, input1[i]));
+    let s2 = Math.max(-1, Math.min(1, input2[i]));
+    view.setInt16(offset, s1 < 0 ? s1 * 0x8000 : s1 * 0x7fff, true);
+    view.setInt16(offset + 2, s2 < 0 ? s2 * 0x8000 : s2 * 0x7fff, true);
+  }
+
+  return Buffer.from(buffer);
+}
+
+async function startTranscription(remoteTrack: MediaStreamTrack, localTrack: MediaStreamTrack) {
   // Create transcribe client
   transcribeClient = new TranscribeStreamingClient({
     region: 'us-east-1',
@@ -104,14 +146,21 @@ async function startTranscription(audioTrack: MediaStreamTrack) {
     }
   });
 
-  micStream = new MicrophoneStream();
-  micStream.setStream(new MediaStream([audioTrack]));
+  // micStream = new MicrophoneStream();
+  // micStream.setStream(new MediaStream([remoteTrack, localTrack]));
+
+  remoteMicStream = new MicrophoneStream();
+  localMicStream = new MicrophoneStream();
+  remoteMicStream.setStream(new MediaStream([remoteTrack]));
+  localMicStream.setStream(new MediaStream([localTrack]));
 
   const command = new StartStreamTranscriptionCommand({
     LanguageCode: 'en-US',
     MediaSampleRateHertz: SAMPLE_RATE,
     MediaEncoding: 'pcm',
-    AudioStream: getAudioStream()
+    AudioStream: getAudioStreamDual(),
+    EnableChannelIdentification: true,
+    NumberOfChannels: 2
   });
 
   const data = await transcribeClient.send(command);
@@ -122,16 +171,21 @@ async function startTranscription(audioTrack: MediaStreamTrack) {
         break;
       }
 
-      // @ts-ignore
-      const results = event.TranscriptEvent.Transcript.Results;
-      // @ts-ignore
-      if (results.length && !results[0]?.IsPartial) {
-        // @ts-ignore
-        const newTranscript = results[0].Alternatives[0].Transcript;
-        console.log(newTranscript);
+      const results = event.TranscriptEvent?.Transcript?.Results;
+      if (!results) {
+        continue;
+      }
 
-        transcriptionStatus.value += '\n' ?? '';
-        transcriptionStatus.value += newTranscript ?? '';
+      for (const res of results) {
+        if (!res.IsPartial) {
+          console.log(res);
+
+          const speaker = res.ChannelId === 'ch_1' ? 'Doctor' : 'Patient';
+          const transcript = res.Alternatives?.map((alt) => alt.Transcript).join(' ');
+          console.log(`${speaker}: ${transcript}`);
+
+          transcriptionStatus.value.push(`${speaker}: ${transcript}`);
+        }
       }
     }
 
@@ -267,13 +321,16 @@ async function toggleTranscribe() {
     if (remoteMicrophoneTrack && localMicrophoneTrack) {
       console.log('starting transcription');
       transcribeOn.value = true;
-      await startTranscription(remoteMicrophoneTrack?.getMediaStreamTrack());
-      await startTranscription(localMicrophoneTrack?.getMediaStreamTrack());
+      await startTranscription(
+        remoteMicrophoneTrack?.getMediaStreamTrack(),
+        localMicrophoneTrack?.getMediaStreamTrack()
+      );
       // await startDeepgram(remoteMicrophoneTrack?.getMediaStreamTrack());
     }
   } else {
     console.log('ending transcription');
     transcribeOn.value = false;
+    // microphone?.stop();
 
     //call lambda function to summarize the transcript
     // const transcript = transcriptionStatus.value;
@@ -291,12 +348,11 @@ async function disconnect() {
   localCameraTrack?.stop();
   client.leave();
   router.push('/');
-  
-  // //trigger lambda function for summarization
+
+  // // trigger lambda function for summarization
   // const response = await axios.post(
   //   'https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/SummarizeTranscript',
   //   { bucket: 'transcription-bucket', key: 'transcript.txt'});
-
 }
 
 // Function to send video frame data to the server for analysis
@@ -409,13 +465,12 @@ onUnmounted(async () => {
 
     <div class="mt-4 space-y-2">
       <h1 class="font-semibold">Room: {{ channel }}</h1>
-      
-      <Card v-if="transcriptionStatus" class="w-[512px]">
+      <Card v-if="transcriptionStatus.length > 0" class="w-[512px]">
         <CardHeader>
           <CardTitle>Transcript: </CardTitle>
         </CardHeader>
         <CardContent>
-          <p>{{ transcriptionStatus }}</p>
+          <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
         </CardContent>
       </Card>
 
