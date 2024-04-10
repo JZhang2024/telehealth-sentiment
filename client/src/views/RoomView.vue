@@ -33,6 +33,7 @@ import {
 import MicrophoneStream from 'microphone-stream';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AWS from 'aws-sdk';
+import SidebarComponent from '@/components/Sidebar.vue';
 
 const appId = '696d19cdaaa045ebb4fafe4f9206068e';
 const route = useRoute();
@@ -484,9 +485,14 @@ onUnmounted(async () => {
         </CardContent>
       </Card>
     </div>
+    <div class = "w-[50vw] h-[50vw] right-10" >
+      <SidebarComponent :frameData="frameData" class="absolute top-0 right-0" />
 
+
+    </div>
     <div class="w-[50vw] max-w-[480px] min-w-[360px] fixed right-6 bottom-6 m-0">
-      <video id="local-video" class="aspect-video" />
+
+      <video id="local-video" class="aspect-video"/>
 
       <div v-if="cameraAvailable" class="absolute bottom-0 right-0 m-3 z-[99]">
         <div class="space-x-2">
@@ -505,6 +511,8 @@ onUnmounted(async () => {
           </Button>
         </div>
       </div>
+      
     </div>
+
   </div>
 </template>
