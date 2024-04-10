@@ -1,7 +1,7 @@
 from openai import OpenAI
 
 # Set your OpenAI API key here
-client = OpenAI(api_key="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")
+client = OpenAI(api_key="")
 
 
 def summarize_transcript(transcript):

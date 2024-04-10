@@ -9,7 +9,8 @@ import {
   Video,
   VideoOff,
   Captions,
-  CaptionsOff
+  CaptionsOff,
+  NotebookPen
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -457,7 +458,7 @@ onUnmounted(async () => {
             <CaptionsOff v-else class="size-4" />
           </Button>
           <Button size="icon" @click="summarizeTranscript">
-            <Summarize class="size-4" />
+            <NotebookPen class="size-4" />
           </Button>
         </div>
       </div>
