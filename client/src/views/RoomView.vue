@@ -31,6 +31,7 @@ import {
 } from '@aws-sdk/client-transcribe-streaming';
 import MicrophoneStream from 'microphone-stream';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import AWS from 'aws-sdk';
 
 const appId = '696d19cdaaa045ebb4fafe4f9206068e';
 const route = useRoute();
@@ -140,8 +141,8 @@ async function startTranscription(remoteTrack: MediaStreamTrack, localTrack: Med
   transcribeClient = new TranscribeStreamingClient({
     region: 'us-east-1',
     credentials: {
-      accessKeyId: '', // TODO: Remove credentials
-      secretAccessKey: ''
+      accessKeyId: process.env.VUE_APP_AWS_ACCESS_KEY_ID || '',
+      secretAccessKey: process.env.VUE_APP_AWS_SECRET_ACCESS_KEY || ''
     }
   });
 
@@ -330,6 +331,12 @@ async function toggleTranscribe() {
     console.log('ending transcription');
     transcribeOn.value = false;
     // microphone?.stop();
+
+    // call lambda function to summarize the transcript
+    const transcript = transcriptionStatus.value;
+
+    const response = await axios.post('/api/summarize', { transcript: transcript });
+    console.log(response.data);
   }
 }
 
@@ -340,6 +347,11 @@ async function disconnect() {
   localCameraTrack?.stop();
   client.leave();
   router.push('/');
+
+  // // trigger lambda function for summarization
+  // const response = await axios.post(
+  //   'https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/SummarizeTranscript',
+  //   { bucket: 'transcription-bucket', key: 'transcript.txt'});
 }
 
 // Function to send video frame data to the server for analysis
@@ -404,6 +416,7 @@ onMounted(async () => {
   await toggleCamera();
   await toggleMic();
   cameraAvailable.value = true;
+  console.log(process.env.VUE_APP_TRANSCRIBE_ACCESS_KEY_ID);
 });
 
 onUnmounted(async () => {
