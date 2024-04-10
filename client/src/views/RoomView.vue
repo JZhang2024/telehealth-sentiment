@@ -276,11 +276,11 @@ async function toggleTranscribe() {
     transcribeOn.value = false;
 
     //call lambda function to summarize the transcript
-    const transcript = transcriptionStatus.value;
+    // const transcript = transcriptionStatus.value;
     
 
-    const response = await axios.post('/api/summarize',{ transcript: transcript });
-    console.log(response.data);
+    // const response = await axios.post('/api/summarize',{ transcript: transcript });
+    // console.log(response.data);
   }
 }
 
@@ -356,6 +356,20 @@ async function captureFrame() {
   await sendFrameData(imageData);
 }
 
+const summary = ref('');
+async function summarizeTranscript() {
+  const response = await axios.post(
+    '/api/summarize',
+    { transcript: transcriptionStatus.value }
+  );
+
+  if (response.data.error) {
+    console.error('Error summarizing transcript:', response.data.error);
+  } else {
+    summary.value = response.data.summary;
+  }
+}
+
 onMounted(async () => {
   await client.join(appId, channel as string, null);
   await toggleCamera();
@@ -386,6 +400,9 @@ onUnmounted(async () => {
             <Captions v-if="transcribeOn" class="size-4" />
             <CaptionsOff v-else class="size-4" />
           </Button>
+          <Button size="icon" @click="summarizeTranscript">
+            <Summarize class="size-4" />
+          </Button>
         </div>
       </div>
     </div>
@@ -395,10 +412,19 @@ onUnmounted(async () => {
       
       <Card v-if="transcriptionStatus" class="w-[512px]">
         <CardHeader>
-          <CardTitle>Transcript</CardTitle>
+          <CardTitle>Transcript: </CardTitle>
         </CardHeader>
         <CardContent>
           <p>{{ transcriptionStatus }}</p>
+        </CardContent>
+      </Card>
+
+      <Card v-if="summary" class="w-[512px]">
+        <CardHeader>
+          <CardTitle>Summary:</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{{ summary }}</p>
         </CardContent>
       </Card>
     </div>
