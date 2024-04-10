@@ -16,6 +16,7 @@
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@vueuse/core": "^10.9.0",
     "agora-rtc-sdk-ng": "^4.20.2",
+    "aws-sdk": "^2.1594.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "lucide-vue-next": "^0.363.0",
