@@ -17,6 +17,7 @@
     "@vueuse/core": "^10.9.0",
     "agora-rtc-sdk-ng": "^4.20.2",
     "aws-sdk": "^2.1594.0",
+    "chart.js": "^4.4.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "lucide-vue-next": "^0.363.0",
@@ -27,6 +28,7 @@
     "vite-plugin-node-polyfills": "^0.21.0",
     "vite-tsconfig-paths": "^4.3.2",
     "vue": "^3.4.21",
+    "vue-chartjs": "^5.3.1",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
