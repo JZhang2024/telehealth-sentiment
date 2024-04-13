@@ -35,7 +35,76 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AWS from 'aws-sdk';
 import SidebarComponent from '@/components/Sidebar.vue';
 
-const appId = '696d19cdaaa045ebb4fafe4f9206068e';
+
+const isAnalysisOn = ref(false);
+let fps = 1;
+let analysisInterval: number | NodeJS.Timeout | undefined;
+let frameData = ref([]);
+
+async function toggleAnalysis() {
+      if (!isAnalysisOn.value) {
+        // Start analysis
+        // emotionalResponses = []; // Clear previous emotional responses
+        analysisInterval = setInterval(captureFrame, 1000 / fps);
+      } else {
+        // Stop analysis
+        clearInterval(analysisInterval);
+        // Save emotional responses to a JSON file
+        // saveEmotionalResponsesToJson();
+      }
+      isAnalysisOn.value = !isAnalysisOn.value;
+    }
+
+async function sendFrameData(imageData: string) {
+  try {
+    // Send image data to your API Gateway endpoint
+    const response = await axios.post("https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/DetectFaces", { imageData });
+    console.log("Response from server:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error sending frame data:", (error as any).response.data);
+    return error;
+  }
+}
+
+async function captureFrame() {
+      //const videoElement = document.getElementById("remote-video"); uncomment this line to capture frame from remote video feed
+      const videoElement = document.getElementById("remote-video"); // Capture frame from local video feed (testing purposes only)
+      // Check if video element exists and is an HTMLVideoElement
+      if (!videoElement || !(videoElement instanceof HTMLVideoElement)) {
+        console.error("Remote video element not found or is not a video element.");
+        return;
+      }
+      // Check if video metadata is loaded
+      if (videoElement.readyState < videoElement.HAVE_METADATA) {
+        console.error("Video metadata not loaded yet.");
+        return;
+      }
+      const canvas = document.createElement("canvas"); // Create canvas element
+      const context = canvas.getContext("2d");
+      // Check if context is available
+      if (!context) {
+        console.error("Canvas context not available.");
+        return;
+      }
+      // Set canvas dimensions to match video feed
+      canvas.width = videoElement.videoWidth;
+      canvas.height = videoElement.videoHeight;
+      // Draw the video frame onto the canvas
+      context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      // Get image data from the canvas
+      const imageData = canvas.toDataURL("image/jpeg");
+      // Send image data to Lambda via API Gateway
+        try {
+        const emotions = await sendFrameData(imageData);
+        frameData.value = emotions;
+      } catch (error) {
+        console.error("Error sending frame data:", error);
+        // Handle error if necessary
+      }
+    }
+
+const appId = import.meta.env.VITE_AGORA_APP_ID as string;
 const route = useRoute();
 const channel = route.params.channelName;
 
@@ -143,8 +212,8 @@ async function startTranscription(remoteTrack: MediaStreamTrack, localTrack: Med
   transcribeClient = new TranscribeStreamingClient({
     region: 'us-east-1',
     credentials: {
-      accessKeyId: process.env.VUE_APP_AWS_ACCESS_KEY_ID || '',
-      secretAccessKey: process.env.VUE_APP_AWS_SECRET_ACCESS_KEY || ''
+      accessKeyId: import.meta.env.VITE_TRANSCRIBE_ACCESS_KEY_ID,
+      secretAccessKey: import.meta.env.VITE_TRANSCRIBE_SECRET_ACCESS
     }
   });
 
@@ -332,6 +401,7 @@ async function toggleTranscribe() {
   } else {
     console.log('ending transcription');
     transcribeOn.value = false;
+    
     // microphone?.stop();
 
     //call lambda function to summarize the transcript
@@ -355,63 +425,6 @@ async function disconnect() {
   // const response = await axios.post(
   //   'https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/SummarizeTranscript',
   //   { bucket: 'transcription-bucket', key: 'transcript.txt'});
-}
-
-// Function to send video frame data to the server for analysis
-async function sendFrameData(imageData: string) {
-  try {
-    // Send image data to your API Gateway endpoint
-    const response = await axios.post(
-      'https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/DetectFaces',
-      { imageData }
-    );
-
-    // Handle response from the server
-    console.log('Response from server:', response.data);
-  } catch (error) {
-    console.error('Error sending frame data:', error);
-  }
-}
-
-async function captureFrame() {
-  const videoElement = document.getElementById('remote-video');
-
-  // Check if video element exists and is an HTMLVideoElement
-  if (!videoElement || !(videoElement instanceof HTMLVideoElement)) {
-    console.error('Remote video element not found or is not a video element.');
-    return;
-  }
-
-  // Check if video metadata is loaded
-  if (videoElement.readyState < videoElement.HAVE_METADATA) {
-    console.error('Video metadata not loaded yet.');
-    return;
-  }
-
-  const canvas = document.createElement('canvas'); // Create canvas element
-  const context = canvas.getContext('2d');
-
-  // Check if context is available
-  if (!context) {
-    console.error('Canvas context not available.');
-    return;
-  }
-
-  // Set canvas dimensions to match video feed
-  canvas.width = videoElement.videoWidth;
-  canvas.height = videoElement.videoHeight;
-
-  // Draw the video frame onto the canvas
-  context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-  // Get image data from the canvas
-  const imageData = canvas.toDataURL('image/jpeg');
-
-  // Log the imageData to inspect it
-  console.log('Captured imageData:', imageData);
-
-  // Send image data to Lambda via API Gateway
-  await sendFrameData(imageData);
 }
 
 const summary = ref('');
@@ -447,13 +460,17 @@ onUnmounted(async () => {
 
 <template>
   <div class="p-8">
+    <div class="w-[50vw] h-[50vw] absolute right-0">
+      <sidebar-component :frameData="frameData"></sidebar-component>
+    </div>
     <div class="flex flex-wrap gap-4 items-center">
       <div class="relative w-[25vw] max-w-[720px] min-w-[480px] overflow-hidden">
         <video id="remote-video" class="aspect-[4/3]" />
         <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
-          <Button size="icon" @click="captureFrame">
+          <Button size="icon" @click="toggleAnalysis">
             <Camera class="size-4" />
-          </Button>
+          {{  isAnalysisOn ? "Stop" : "Start" }} Analysis
+        </Button>
           <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
             <Captions v-if="transcribeOn" class="size-4" />
             <CaptionsOff v-else class="size-4" />
@@ -464,6 +481,7 @@ onUnmounted(async () => {
         </div>
       </div>
     </div>
+
 
     <div class="mt-4 space-y-2">
       <h1 class="font-semibold">Room: {{ channel }}</h1>
@@ -485,13 +503,9 @@ onUnmounted(async () => {
         </CardContent>
       </Card>
     </div>
-    <div class = "w-[50vw] h-[50vw] right-10" >
-      <SidebarComponent :frameData="frameData" class="absolute top-0 right-0" />
 
-
-    </div>
+    
     <div class="w-[50vw] max-w-[480px] min-w-[360px] fixed right-6 bottom-6 m-0">
-
       <video id="local-video" class="aspect-video"/>
 
       <div v-if="cameraAvailable" class="absolute bottom-0 right-0 m-3 z-[99]">
