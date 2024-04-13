@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import router from '@/router';
 import {
   Camera,
+  CameraOff,
   Mic,
   MicOff,
   LogOut,
@@ -33,13 +34,7 @@ import { useSpeechRecognition } from '@vueuse/core';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import SidebarComponent from '@/components/Sidebar.vue';
 import { createDeepgram } from '@/lib/deepgram';
-import {
-  SAMPLE_RATE,
-  getAudioStreamDual,
-  createTranscribeClient,
-  startTranscribe,
-  createMicStreams
-} from '@/lib/transcribe';
+import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
 
 const isAnalysisOn = ref(false);
 let fps = 1;
@@ -324,8 +319,8 @@ onUnmounted(async () => {
         <video id="remote-video" class="aspect-[4/3]" />
         <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
           <Button size="icon" @click="toggleAnalysis">
-            <Camera class="size-4" />
-            {{ isAnalysisOn ? 'Stop' : 'Start' }} Analysis
+            <Camera v-if="isAnalysisOn" class="size-4" />
+            <CameraOff v-else class="size-4" />
           </Button>
           <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
             <Captions v-if="transcribeOn" class="size-4" />
