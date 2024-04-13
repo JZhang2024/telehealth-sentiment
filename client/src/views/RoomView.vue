@@ -23,18 +23,24 @@ import {
   type ICameraVideoTrack,
   type IMicrophoneAudioTrack
 } from 'agora-rtc-sdk-ng/esm';
-import * as deepgram from '@deepgram/sdk';
 import axios from 'axios';
-import { useSpeechRecognition } from '@vueuse/core';
+import MicrophoneStream from 'microphone-stream';
 import {
   TranscribeStreamingClient,
   StartStreamTranscriptionCommand
 } from '@aws-sdk/client-transcribe-streaming';
-import MicrophoneStream from 'microphone-stream';
+import { useSpeechRecognition } from '@vueuse/core';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import AWS from 'aws-sdk';
+import { createDeepgram } from '@/lib/deepgram';
+import {
+  SAMPLE_RATE,
+  getAudioStreamDual,
+  createTranscribeClient,
+  startTranscribe,
+  createMicStreams
+} from '@/lib/transcribe';
 
-const appId = '696d19cdaaa045ebb4fafe4f9206068e';
+const appId = import.meta.env.VITE_AGORA_APP_ID;
 const route = useRoute();
 const channel = route.params.channelName;
 
@@ -46,7 +52,10 @@ const cameraOn = ref(false);
 const remoteCameraOn = ref(false);
 const remoteMicOn = ref(false);
 const cameraAvailable = ref(false);
+
+// Track transcription
 const transcribeOn = ref(false);
+const transcriptionStatus = ref<string[]>([]);
 
 // Local audio tracks
 let localMicrophoneTrack: IMicrophoneAudioTrack | null = null;
@@ -62,188 +71,34 @@ let remoteMicrophoneTrack: IRemoteAudioTrack | undefined;
 //   continuous: true
 // });
 
-const transcriptionStatus = ref<string[]>([]);
-
+// Transcribe
 let transcribeClient: TranscribeStreamingClient | undefined;
-let micStream: MicrophoneStream;
 let remoteMicStream: MicrophoneStream;
 let localMicStream: MicrophoneStream;
 
-const SAMPLE_RATE = 41000;
-
-async function* getAudioStream() {
-  // @ts-ignore
-  for await (const chunk of micStream) {
-    if (chunk.length <= SAMPLE_RATE) {
-      yield {
-        AudioEvent: {
-          AudioChunk: encodePCMChunk(chunk)
-        }
-      };
-    }
-  }
-}
-
-function encodePCMChunk(chunk: Buffer) {
-  const input = MicrophoneStream.toRaw(chunk);
-  let offset = 0;
-  const buffer = new ArrayBuffer(input.length * 2);
-  const view = new DataView(buffer);
-  for (let i = 0; i < input.length; i++, offset += 2) {
-    let s = Math.max(-1, Math.min(1, input[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-  }
-  return Buffer.from(buffer);
-}
-
-async function* getAudioStreamDual() {
-  const [iterator1, iterator2] = [
-    // @ts-ignore
-    remoteMicStream[Symbol.asyncIterator](),
-    // @ts-ignore
-    localMicStream[Symbol.asyncIterator]()
-  ];
-  while (true) {
-    const [result1, result2] = await Promise.all([iterator1.next(), iterator2.next()]);
-    if (result1.done || result2.done) break;
-
-    const chunk1 = result1.value;
-    const chunk2 = result2.value;
-
-    // Assuming both chunks have the same length
-    if (chunk1.length <= SAMPLE_RATE && chunk2.length <= SAMPLE_RATE) {
-      yield {
-        AudioEvent: {
-          AudioChunk: encodePCMChunkDual(chunk1, chunk2)
-        }
-      };
-    }
-  }
-}
-
-function encodePCMChunkDual(chunk1: Buffer, chunk2: Buffer) {
-  const input1 = MicrophoneStream.toRaw(chunk1);
-  const input2 = MicrophoneStream.toRaw(chunk2);
-  const buffer = new ArrayBuffer(input1.length * 4); // 2 channels * 2 bytes per sample
-  const view = new DataView(buffer);
-
-  for (let i = 0, offset = 0; i < input1.length; i++, offset += 4) {
-    let s1 = Math.max(-1, Math.min(1, input1[i]));
-    let s2 = Math.max(-1, Math.min(1, input2[i]));
-    view.setInt16(offset, s1 < 0 ? s1 * 0x8000 : s1 * 0x7fff, true);
-    view.setInt16(offset + 2, s2 < 0 ? s2 * 0x8000 : s2 * 0x7fff, true);
-  }
-
-  return Buffer.from(buffer);
-}
-
-async function startTranscription(remoteTrack: MediaStreamTrack, localTrack: MediaStreamTrack) {
-  // Create transcribe client
-  transcribeClient = new TranscribeStreamingClient({
-    region: 'us-east-1',
-    credentials: {
-      accessKeyId: process.env.VUE_APP_AWS_ACCESS_KEY_ID || '',
-      secretAccessKey: process.env.VUE_APP_AWS_SECRET_ACCESS_KEY || ''
-    }
-  });
-
-  // micStream = new MicrophoneStream();
-  // micStream.setStream(new MediaStream([remoteTrack, localTrack]));
-
-  remoteMicStream = new MicrophoneStream();
-  localMicStream = new MicrophoneStream();
-  remoteMicStream.setStream(new MediaStream([remoteTrack]));
-  localMicStream.setStream(new MediaStream([localTrack]));
-
-  const command = new StartStreamTranscriptionCommand({
-    LanguageCode: 'en-US',
-    MediaSampleRateHertz: SAMPLE_RATE,
-    MediaEncoding: 'pcm',
-    AudioStream: getAudioStreamDual(),
-    EnableChannelIdentification: true,
-    NumberOfChannels: 2
-  });
-
-  const data = await transcribeClient.send(command);
-  console.log('transcribe command sent');
-  (async () => {
-    for await (const event of data.TranscriptResultStream!) {
-      if (!transcribeOn.value) {
-        break;
-      }
-
-      const results = event.TranscriptEvent?.Transcript?.Results;
-      if (!results) {
-        continue;
-      }
-
-      for (const res of results) {
-        if (!res.IsPartial) {
-          console.log(res);
-
-          const speaker = res.ChannelId === 'ch_1' ? 'Doctor' : 'Patient';
-          const transcript = res.Alternatives?.map((alt) => alt.Transcript).join(' ');
-          console.log(`${speaker}: ${transcript}`);
-
-          transcriptionStatus.value.push(`${speaker}: ${transcript}`);
-        }
-      }
-    }
-
-    transcribeClient = undefined;
-  })().catch(console.error);
-}
-
+// Deepgram
 let microphone: MediaRecorder | null;
-async function startDeepgram(audioTrack: MediaStreamTrack) {
-  const dgClient = deepgram.createClient(''); // TODO: Add credentials
-  const connection = dgClient.listen.live({
-    model: 'nova-2',
-    // interim_results: true,
-    smart_format: true
-  });
-
-  microphone = new MediaRecorder(new MediaStream([audioTrack]));
-  await microphone.start(500);
-
-  microphone.onstart = () => {
-    console.log('client: microphone opened');
-    // document.body.classList.add('recording');
-  };
-
-  microphone.onstop = () => {
-    console.log('client: microphone closed');
-    // document.body.classList.remove('recording');
-  };
-
-  microphone.ondataavailable = (e) => {
-    const data = e.data;
-    // console.log('client: sent data to websocket');
-    connection.send(data);
-  };
-
-  connection.on(deepgram.LiveTranscriptionEvents.Open, () => {
-    console.log('connection established');
-    // transcribeOn.value = true;
-  });
-
-  connection.on(deepgram.LiveTranscriptionEvents.Close, () => {
-    console.log('connection closed');
-    // transcribeOn.value = false;
-  });
-
-  connection.on(deepgram.LiveTranscriptionEvents.Transcript, (data) => {
-    // console.log('raw:', data);
-    const words = data.channel.alternatives[0].words;
-    const caption = words.map((word: any) => word.punctuated_word ?? word.word).join(' ');
-    if (caption !== '') {
-      console.log('transciption:', caption);
-    }
-  });
-}
 
 // Agora client info
 const client = createClient({ mode: 'rtc', codec: 'vp8' });
+
+async function startTranscription(remoteTrack: MediaStreamTrack, localTrack: MediaStreamTrack) {
+  transcribeClient = createTranscribeClient();
+  [remoteMicStream, localMicStream] = createMicStreams(remoteTrack, localTrack);
+  await startTranscribe(
+    transcribeClient,
+    remoteMicStream,
+    localMicStream,
+    transcribeOn,
+    transcriptionStatus
+  );
+}
+
+async function startDeepgram(audioTrack: MediaStreamTrack) {
+  microphone = createDeepgram(audioTrack);
+  await microphone.start(500);
+}
+
 client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
   await client.subscribe(user, mediaType);
 
@@ -331,11 +186,15 @@ async function toggleTranscribe() {
   } else {
     console.log('ending transcription');
     transcribeOn.value = false;
+    remoteMicStream.stop();
+    localMicStream.stop();
+    transcribeClient?.destroy();
+
+    // transcribeClient?.destroy();
     // microphone?.stop();
 
     //call lambda function to summarize the transcript
     // const transcript = transcriptionStatus.value;
-    
 
     // const response = await axios.post('/api/summarize',{ transcript: transcript });
     // console.log(response.data);
@@ -415,10 +274,7 @@ async function captureFrame() {
 
 const summary = ref('');
 async function summarizeTranscript() {
-  const response = await axios.post(
-    '/api/summarize',
-    { transcript: transcriptionStatus.value }
-  );
+  const response = await axios.post('/api/summarize', { transcript: transcriptionStatus.value });
 
   if (response.data.error) {
     console.error('Error summarizing transcript:', response.data.error);
@@ -432,7 +288,6 @@ onMounted(async () => {
   await toggleCamera();
   await toggleMic();
   cameraAvailable.value = true;
-  console.log(process.env.VUE_APP_TRANSCRIBE_ACCESS_KEY_ID);
 });
 
 onUnmounted(async () => {
@@ -468,7 +323,7 @@ onUnmounted(async () => {
       <h1 class="font-semibold">Room: {{ channel }}</h1>
       <Card v-if="transcriptionStatus.length > 0" class="w-[512px]">
         <CardHeader>
-          <CardTitle>Transcript: </CardTitle>
+          <CardTitle>Transcript</CardTitle>
         </CardHeader>
         <CardContent>
           <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
@@ -477,10 +332,10 @@ onUnmounted(async () => {
 
       <Card v-if="summary" class="w-[512px]">
         <CardHeader>
-          <CardTitle>Summary:</CardTitle>
+          <CardTitle>Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>{{ summary }}</p>
+          <p v-for="(item, index) in summary.split('\n')" :key="index">{{ item }}</p>
         </CardContent>
       </Card>
     </div>
