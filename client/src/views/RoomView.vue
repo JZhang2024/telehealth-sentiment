@@ -32,7 +32,7 @@ import {
 } from '@aws-sdk/client-transcribe-streaming';
 import { useSpeechRecognition } from '@vueuse/core';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import SidebarComponent from '@/components/Sidebar.vue';
+import BarChart from '@/components/BarChart.vue';
 import { createDeepgram } from '@/lib/deepgram';
 import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
 
@@ -309,10 +309,10 @@ onUnmounted(async () => {
 });
 </script>
 
-<template>
+<!-- <template>
   <div class="p-8">
-    <div class="w-[50vw] h-[50vw] absolute right-0">
-      <sidebar-component :frameData="frameData"></sidebar-component>
+    <div class="w-1/4 h-[100vh] absolute right-0">
+      <BarChart :frameData="frameData" />
     </div>
     <div class="flex flex-wrap gap-4 items-center">
       <div class="relative w-[25vw] max-w-[720px] min-w-[480px] overflow-hidden">
@@ -373,6 +373,84 @@ onUnmounted(async () => {
             <LogOut class="size-4" />
           </Button>
         </div>
+      </div>
+    </div>
+  </div>
+</template> -->
+
+<!-- GPT -->
+<template>
+  <div class="p-8 flex space-x-2">
+    <!-- Video feeds section -->
+    <div class="flex flex-1 items-center justify-between space-x-2">
+      <div class="flex-1 relative overflow-hidden">
+        <!-- Remote video -->
+        <video id="remote-video" class="w-full h-auto" />
+
+        <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
+          <Button size="icon" @click="toggleAnalysis">
+            <Camera v-if="isAnalysisOn" class="size-4" />
+            <CameraOff v-else class="size-4" />
+          </Button>
+          <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
+            <Captions v-if="transcribeOn" class="size-4" />
+            <CaptionsOff v-else class="size-4" />
+          </Button>
+          <Button size="icon" @click="summarizeTranscript">
+            <NotebookPen class="size-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div class="flex-1 relative overflow-hidden">
+        <!-- Local video -->
+        <video id="local-video" class="w-full h-auto" />
+        <div v-if="cameraAvailable" class="absolute top-0 right-0 m-3">
+          <div class="space-x-2">
+            <Button size="icon" @click="toggleMic">
+              <Mic v-if="micOn" class="size-4" />
+              <MicOff v-else class="size-4" />
+            </Button>
+            <Button size="icon" @click="toggleCamera">
+              <Video v-if="cameraOn" class="size-4" />
+              <VideoOff v-else class="size-4" />
+            </Button>
+            <Button size="icon" variant="destructive" @click="disconnect">
+              <LogOut class="size-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar for transcription and summary -->
+    <div class="w-[25vw] min-w-[300px] h-auto overflow-scroll">
+      <div class="space-y-2 overflow-y-auto">
+        <Card>
+          <CardContent class="pt-6">
+            <p class="font-semibold text-lg">Room: {{ channel }}</p>
+          </CardContent>
+        </Card>
+
+        <BarChart :frameData="frameData" />
+
+        <Card v-if="transcriptionStatus.length > 0">
+          <CardHeader>
+            <CardTitle>Transcript</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
+          </CardContent>
+        </Card>
+
+        <Card v-if="summary">
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p v-for="(item, index) in summary.split('\n')" :key="index">{{ item }}</p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   </div>
