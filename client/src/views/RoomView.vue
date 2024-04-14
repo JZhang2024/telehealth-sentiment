@@ -276,20 +276,24 @@ async function disconnect() {
   client.leave();
   router.push('/');
 
-  // // trigger lambda function for summarization
-  // const response = await axios.post(
-  //   'https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/SummarizeTranscript',
-  //   { bucket: 'transcription-bucket', key: 'transcript.txt'});
 }
 
 const summary = ref('');
 async function summarizeTranscript() {
-  const response = await axios.post('/api/summarize', { transcript: transcriptionStatus.value });
-
-  if (response.data.error) {
-    console.error('Error summarizing transcript:', response.data.error);
-  } else {
-    summary.value = response.data.summary;
+  try {
+    const response = await axios.post(
+      'https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/summarize',
+      { transcript: transcriptionStatus.value }
+    );
+    console.log(response);
+    if (response.status !== 200) {
+      console.error('Error summarizing transcript');
+    } else {
+      summary.value = response.data
+      console.log(summary.value);
+    }
+  } catch (error) {
+    console.error('Error calling Lambda function:', error);
   }
 }
 
