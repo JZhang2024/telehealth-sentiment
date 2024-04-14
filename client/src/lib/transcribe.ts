@@ -72,8 +72,9 @@ export async function startTranscribe(
     }
 
     // Stop transcribe
-    client.destroy();
+    // client.destroy();
     // client = undefined;
+    console.log('exiting transcribe loop');
   })().catch(console.error);
 }
 

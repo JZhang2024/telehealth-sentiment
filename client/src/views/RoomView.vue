@@ -253,9 +253,10 @@ async function toggleTranscribe() {
   } else {
     console.log('ending transcription');
     transcribeOn.value = false;
-    remoteMicStream.stop();
-    localMicStream.stop();
+    remoteMicStream.pauseRecording();
+    localMicStream.pauseRecording();
     transcribeClient?.destroy();
+    // transcribeClient = undefined;
 
     // transcribeClient?.destroy();
     // microphone?.stop();
@@ -275,7 +276,6 @@ async function disconnect() {
   localCameraTrack?.stop();
   client.leave();
   router.push('/');
-
 }
 
 const summary = ref('');
@@ -289,7 +289,7 @@ async function summarizeTranscript() {
     if (response.status !== 200) {
       console.error('Error summarizing transcript');
     } else {
-      summary.value = response.data
+      summary.value = response.data;
       console.log(summary.value);
     }
   } catch (error) {
