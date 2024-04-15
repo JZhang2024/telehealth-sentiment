@@ -321,20 +321,21 @@ onUnmounted(async () => {
 });
 </script>
 
-<!-- GPT -->
 <template>
   <div class="flex flex-col h-screen">
     <div class="p-8 flex flex-grow space-x-4 overflow-hidden">
       <!-- Video feeds section -->
       <div class="flex flex-1 items-center justify-between space-x-2">
         <div v-if="remoteConnected" class="flex-1 relative overflow-hidden">
-          <video id="remote-video" class="w-full h-auto rounded-lg bg-black aspect-[4/3]" />
+          <video
+            id="remote-video"
+            class="w-full h-auto max-h-[90vh] rounded-lg bg-black aspect-[4/3]" />
         </div>
 
         <div class="flex-1 relative overflow-hidden">
           <video
             id="local-video"
-            class="w-full h-auto rounded-lg bg-black"
+            class="w-full h-auto max-h-[90vh] rounded-lg bg-black"
             :class="{ 'aspect-video': !remoteConnected, 'aspect-[4/3]': remoteConnected }" />
         </div>
       </div>
