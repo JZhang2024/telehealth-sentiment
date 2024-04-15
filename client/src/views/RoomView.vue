@@ -246,6 +246,8 @@ async function toggleTranscribe() {
         remoteMicrophoneTrack?.getMediaStreamTrack(),
         localMicrophoneTrack?.getMediaStreamTrack()
       );
+    } else {
+      console.log('remote mic and local mic are not both on');
     }
   } else {
     console.log('ending transcription');
@@ -287,7 +289,7 @@ async function summarizeTranscript() {
 onMounted(async () => {
   await client.join(appId, channel as string, null);
   await toggleCamera();
-  await toggleMic();
+  // await toggleMic();
   loaded.value = true;
 });
 
@@ -371,53 +373,23 @@ onUnmounted(async () => {
 
 <!-- GPT -->
 <template>
-  <div class="p-8 flex space-x-2">
-    <!-- Video feeds section -->
-    <div class="flex flex-1 items-center justify-between space-x-2">
-      <div class="flex-1 relative overflow-hidden">
-        <!-- Remote video -->
-        <video id="remote-video" class="w-full h-auto bg-black aspect-[4/3]" />
+  <div class="flex flex-col h-screen">
+    <div class="p-8 flex flex-grow space-x-2 overflow-hidden">
+      <!-- Video feeds section -->
+      <div class="flex flex-1 items-center justify-between space-x-2">
+        <div class="flex-1 relative overflow-hidden">
+          <!-- Remote video -->
+          <video id="remote-video" class="w-full h-auto bg-black aspect-[4/3]" />
+        </div>
 
-        <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
-          <Button size="icon" @click="toggleAnalysis">
-            <Camera v-if="isAnalysisOn" class="size-4" />
-            <CameraOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
-            <Captions v-if="transcribeOn" class="size-4" />
-            <CaptionsOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" @click="summarizeTranscript">
-            <NotebookPen class="size-4" />
-          </Button>
+        <div class="flex-1 relative overflow-hidden">
+          <!-- Local video -->
+          <video id="local-video" class="w-full h-auto bg-black aspect-[4/3]" />
         </div>
       </div>
 
-      <div class="flex-1 relative overflow-hidden">
-        <!-- Local video -->
-        <video id="local-video" class="w-full h-auto bg-black aspect-[4/3]" />
-
-        <div v-if="loaded" class="absolute top-0 right-0 m-3">
-          <div class="space-x-2">
-            <Button size="icon" @click="toggleMic">
-              <Mic v-if="micOn" class="size-4" />
-              <MicOff v-else class="size-4" />
-            </Button>
-            <Button size="icon" @click="toggleCamera">
-              <Video v-if="cameraOn" class="size-4" />
-              <VideoOff v-else class="size-4" />
-            </Button>
-            <Button size="icon" variant="destructive" @click="disconnect">
-              <LogOut class="size-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Sidebar for transcription and summary -->
-    <div class="w-[25vw] min-w-[300px] h-auto overflow-scroll">
-      <div class="space-y-2 overflow-y-auto">
+      <!-- Sidebar for transcription and summary -->
+      <div class="w-[25vw] min-w-[300px] space-y-2 overflow-y-auto">
         <Card>
           <CardContent class="pt-6">
             <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
@@ -426,24 +398,89 @@ onUnmounted(async () => {
 
         <BarChart :frameData="frameData" />
 
-        <Card v-if="transcriptionStatus.length > 0">
+        <Card>
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">Transcription</CardTitle>
           </CardHeader>
           <CardContent>
-            <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
+            <p
+              v-if="transcriptionStatus.length > 0"
+              v-for="(item, index) in transcriptionStatus"
+              :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+            </div>
           </CardContent>
         </Card>
 
-        <Card v-if="summary">
+        <Card>
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <p v-for="(item, index) in summary.split('\n')" :key="index">{{ item }}</p>
+            <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
+    </div>
+
+    <!-- Bar pinned to buttom -->
+    <div class="w-full p-2 flex justify-center space-x-4">
+      <Button size="icon" @click="toggleMic">
+        <Mic v-if="micOn" class="size-4" />
+        <MicOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="toggleCamera">
+        <Video v-if="cameraOn" class="size-4" />
+        <VideoOff v-else class="size-4" />
+      </Button>
+
+      <Button size="icon" @click="toggleAnalysis" :disabled="!remoteCameraOn">
+        <Camera v-if="isAnalysisOn" class="size-4" />
+        <CameraOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
+        <Captions v-if="transcribeOn" class="size-4" />
+        <CaptionsOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
+        <NotebookPen class="size-4" />
+      </Button>
+
+      <Button size="icon" variant="destructive" @click="disconnect">
+        <LogOut class="size-4" />
+      </Button>
     </div>
   </div>
 </template>
