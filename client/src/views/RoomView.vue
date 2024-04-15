@@ -22,7 +22,8 @@ import {
   IRemoteAudioTrack,
   type IAgoraRTCRemoteUser,
   type ICameraVideoTrack,
-  type IMicrophoneAudioTrack
+  type IMicrophoneAudioTrack,
+  getDevices
 } from 'agora-rtc-sdk-ng/esm';
 import axios from 'axios';
 import MicrophoneStream from 'microphone-stream';
@@ -118,7 +119,8 @@ const cameraOn = ref(false);
 // Track video feeds
 const remoteCameraOn = ref(false);
 const remoteMicOn = ref(false);
-const cameraAvailable = ref(false);
+// const cameraAvailable = ref(false);
+const loaded = ref(false);
 
 // Track transcription
 const transcribeOn = ref(false);
@@ -201,40 +203,36 @@ client.on('user-unpublished', async (user: IAgoraRTCRemoteUser, mediaType: 'vide
 
 async function toggleMic() {
   if (!localMicrophoneTrack) {
+    const devices = await getDevices();
+    const audioDevices = devices.filter((device) => device.kind === 'audioinput');
+    // Check if mic is available
+    if (audioDevices.length == 0) {
+      return;
+    }
+
     localMicrophoneTrack = await createMicrophoneAudioTrack();
     await client.publish(localMicrophoneTrack);
   }
+
   localMicrophoneTrack.setEnabled(!micOn.value);
-
-  // if (micOn.value) {
-  //   // Stop speech recognition
-  //   speechToText.stop();
-  // } else {
-  //   // Start speech recognition
-  //   if (speechToText.recognition) {
-  //     speechToText.recognition.onresult = (event) => {
-  //       const transcript = Array.from(event.results)
-  //         .map((result) => result[0])
-  //         .map((result) => result.transcript)
-  //         .join('');
-  //       console.log(transcript);
-  //     };
-  //     speechToText.recognition.onerror = (event) => {
-  //       console.error('Speech recognition error', event.error);
-  //     };
-  //   }
-  //   speechToText.start();
-  // }
-
   micOn.value = !micOn.value;
 }
 
 async function toggleCamera() {
   if (!localCameraTrack) {
+    const devices = await getDevices();
+    const videoDevices = devices.filter((device) => device.kind === 'videoinput');
+    // Check if camera is available
+    if (videoDevices.length == 0) {
+      return;
+    }
+
+    // cameraAvailable.value = true;
     localCameraTrack = await createCameraVideoTrack();
     await client.publish(localCameraTrack);
     localCameraTrack.play('local-video');
   }
+
   localCameraTrack.setEnabled(!cameraOn.value);
   cameraOn.value = !cameraOn.value;
 }
@@ -248,7 +246,6 @@ async function toggleTranscribe() {
         remoteMicrophoneTrack?.getMediaStreamTrack(),
         localMicrophoneTrack?.getMediaStreamTrack()
       );
-      // await startDeepgram(remoteMicrophoneTrack?.getMediaStreamTrack());
     }
   } else {
     console.log('ending transcription');
@@ -256,16 +253,6 @@ async function toggleTranscribe() {
     remoteMicStream.pauseRecording();
     localMicStream.pauseRecording();
     transcribeClient?.destroy();
-    // transcribeClient = undefined;
-
-    // transcribeClient?.destroy();
-    // microphone?.stop();
-
-    //call lambda function to summarize the transcript
-    // const transcript = transcriptionStatus.value;
-
-    // const response = await axios.post('/api/summarize',{ transcript: transcript });
-    // console.log(response.data);
   }
 }
 
@@ -301,7 +288,7 @@ onMounted(async () => {
   await client.join(appId, channel as string, null);
   await toggleCamera();
   await toggleMic();
-  cameraAvailable.value = true;
+  loaded.value = true;
 });
 
 onUnmounted(async () => {
@@ -389,7 +376,7 @@ onUnmounted(async () => {
     <div class="flex flex-1 items-center justify-between space-x-2">
       <div class="flex-1 relative overflow-hidden">
         <!-- Remote video -->
-        <video id="remote-video" class="w-full h-auto" />
+        <video id="remote-video" class="w-full h-auto bg-black aspect-[4/3]" />
 
         <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
           <Button size="icon" @click="toggleAnalysis">
@@ -408,8 +395,9 @@ onUnmounted(async () => {
 
       <div class="flex-1 relative overflow-hidden">
         <!-- Local video -->
-        <video id="local-video" class="w-full h-auto" />
-        <div v-if="cameraAvailable" class="absolute top-0 right-0 m-3">
+        <video id="local-video" class="w-full h-auto bg-black aspect-[4/3]" />
+
+        <div v-if="loaded" class="absolute top-0 right-0 m-3">
           <div class="space-x-2">
             <Button size="icon" @click="toggleMic">
               <Mic v-if="micOn" class="size-4" />
@@ -432,7 +420,7 @@ onUnmounted(async () => {
       <div class="space-y-2 overflow-y-auto">
         <Card>
           <CardContent class="pt-6">
-            <p class="font-semibold text-lg">Room: {{ channel }}</p>
+            <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
           </CardContent>
         </Card>
 
@@ -440,7 +428,7 @@ onUnmounted(async () => {
 
         <Card v-if="transcriptionStatus.length > 0">
           <CardHeader>
-            <CardTitle>Transcript</CardTitle>
+            <CardTitle class="text-lg tracking-normal">Transcription</CardTitle>
           </CardHeader>
           <CardContent>
             <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
@@ -449,7 +437,7 @@ onUnmounted(async () => {
 
         <Card v-if="summary">
           <CardHeader>
-            <CardTitle>Summary</CardTitle>
+            <CardTitle class="text-lg tracking-normal">Summary</CardTitle>
           </CardHeader>
           <CardContent>
             <p v-for="(item, index) in summary.split('\n')" :key="index">{{ item }}</p>
