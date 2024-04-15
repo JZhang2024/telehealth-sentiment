@@ -116,6 +116,9 @@ const channel = route.params.channelName;
 const micOn = ref(false);
 const cameraOn = ref(false);
 
+// Track remote user status
+const remoteConnected = ref(false);
+
 // Track video feeds
 const remoteCameraOn = ref(false);
 const remoteMicOn = ref(false);
@@ -167,6 +170,16 @@ async function startDeepgram(audioTrack: MediaStreamTrack) {
   microphone = createDeepgram(audioTrack);
   await microphone.start(500);
 }
+
+client.on('user-joined', async (user: IAgoraRTCRemoteUser) => {
+  console.log('joined:', user);
+  remoteConnected.value = true;
+});
+
+client.on('user-left', async (user: IAgoraRTCRemoteUser) => {
+  console.log('left:', user);
+  remoteConnected.value = false;
+});
 
 client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
   await client.subscribe(user, mediaType);
@@ -374,22 +387,23 @@ onUnmounted(async () => {
 <!-- GPT -->
 <template>
   <div class="flex flex-col h-screen">
-    <div class="p-8 flex flex-grow space-x-2 overflow-hidden">
+    <div class="p-8 flex flex-grow space-x-4 overflow-hidden">
       <!-- Video feeds section -->
       <div class="flex flex-1 items-center justify-between space-x-2">
-        <div class="flex-1 relative overflow-hidden">
-          <!-- Remote video -->
-          <video id="remote-video" class="w-full h-auto bg-black aspect-[4/3]" />
+        <div v-if="remoteConnected" class="flex-1 relative overflow-hidden">
+          <video id="remote-video" class="w-full h-auto rounded-lg bg-black aspect-[4/3]" />
         </div>
 
         <div class="flex-1 relative overflow-hidden">
-          <!-- Local video -->
-          <video id="local-video" class="w-full h-auto bg-black aspect-[4/3]" />
+          <video
+            id="local-video"
+            class="w-full h-auto rounded-lg bg-black"
+            :class="{ 'aspect-video': !remoteConnected, 'aspect-[4/3]': remoteConnected }" />
         </div>
       </div>
 
       <!-- Sidebar for transcription and summary -->
-      <div class="w-[25vw] min-w-[300px] space-y-2 overflow-y-auto">
+      <div class="w-[20vw] space-y-2 overflow-y-auto">
         <Card>
           <CardContent class="pt-6">
             <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
@@ -455,7 +469,7 @@ onUnmounted(async () => {
       </div>
     </div>
 
-    <!-- Bar pinned to buttom -->
+    <!-- Controls bar pinned to buttom -->
     <div class="w-full p-2 flex justify-center space-x-4">
       <Button size="icon" @click="toggleMic">
         <Mic v-if="micOn" class="size-4" />
