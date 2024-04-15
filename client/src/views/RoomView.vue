@@ -11,7 +11,8 @@ import {
   VideoOff,
   Captions,
   CaptionsOff,
-  NotebookPen
+  NotebookPen,
+  Sidebar
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -125,7 +126,9 @@ const remoteMicOn = ref(false);
 // const cameraAvailable = ref(false);
 const loaded = ref(false);
 
-// Track transcription
+// UI state
+const sidebarOpen = ref(false);
+const summary = ref('');
 const transcribeOn = ref(false);
 const transcriptionStatus = ref<string[]>([]);
 
@@ -280,7 +283,6 @@ async function disconnect() {
   router.push('/');
 }
 
-const summary = ref('');
 async function summarizeTranscript() {
   try {
     const response = await axios.post(
@@ -299,6 +301,10 @@ async function summarizeTranscript() {
   }
 }
 
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value;
+}
+
 onMounted(async () => {
   await client.join(appId, channel as string, null);
   await toggleCamera();
@@ -314,75 +320,6 @@ onUnmounted(async () => {
   client.leave();
 });
 </script>
-
-<!-- <template>
-  <div class="p-8">
-    <div class="w-1/4 h-[100vh] absolute right-0">
-      <BarChart :frameData="frameData" />
-    </div>
-    <div class="flex flex-wrap gap-4 items-center">
-      <div class="relative w-[25vw] max-w-[720px] min-w-[480px] overflow-hidden">
-        <video id="remote-video" class="aspect-[4/3]" />
-        <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
-          <Button size="icon" @click="toggleAnalysis">
-            <Camera v-if="isAnalysisOn" class="size-4" />
-            <CameraOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
-            <Captions v-if="transcribeOn" class="size-4" />
-            <CaptionsOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" @click="summarizeTranscript">
-            <NotebookPen class="size-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <div class="mt-4 space-y-2">
-      <h1 class="font-semibold">Room: {{ channel }}</h1>
-      <Card v-if="transcriptionStatus.length > 0" class="w-[512px]">
-        <CardHeader>
-          <CardTitle>Transcript</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
-        </CardContent>
-      </Card>
-
-      <Card v-if="summary" class="w-[512px]">
-        <CardHeader>
-          <CardTitle>Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p v-for="(item, index) in summary.split('\n')" :key="index">{{ item }}</p>
-        </CardContent>
-      </Card>
-    </div>
-
-    <div class="w-[50vw] max-w-[480px] min-w-[360px] fixed right-6 bottom-6 m-0">
-      <video id="local-video" class="aspect-video" />
-
-      <div v-if="cameraAvailable" class="absolute bottom-0 right-0 m-3 z-[99]">
-        <div class="space-x-2">
-          <Button size="icon" @click="toggleMic">
-            <Mic v-if="micOn" class="size-4" />
-            <MicOff v-else class="size-4" />
-          </Button>
-
-          <Button size="icon" @click="toggleCamera">
-            <Video v-if="cameraOn" class="size-4" />
-            <VideoOff v-else class="size-4" />
-          </Button>
-
-          <Button size="icon" variant="destructive" @click="disconnect">
-            <LogOut class="size-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template> -->
 
 <!-- GPT -->
 <template>
@@ -403,7 +340,7 @@ onUnmounted(async () => {
       </div>
 
       <!-- Sidebar for transcription and summary -->
-      <div class="w-[20vw] space-y-2 overflow-y-auto">
+      <div v-if="sidebarOpen" class="w-[20vw] space-y-2 overflow-y-auto">
         <Card>
           <CardContent class="pt-6">
             <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
@@ -494,6 +431,10 @@ onUnmounted(async () => {
 
       <Button size="icon" variant="destructive" @click="disconnect">
         <LogOut class="size-4" />
+      </Button>
+
+      <Button size="icon" @click="toggleSidebar">
+        <Sidebar class="size-4" />
       </Button>
     </div>
   </div>
