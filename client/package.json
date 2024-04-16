@@ -22,6 +22,7 @@
     "clsx": "^2.1.0",
     "lucide-vue-next": "^0.363.0",
     "microphone-stream": "^6.0.1",
+    "pinia": "^2.1.7",
     "radix-vue": "^1.5.3",
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",

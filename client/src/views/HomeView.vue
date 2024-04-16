@@ -3,6 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import router from '@/router';
 import Navbar from '@/components/Navbar.vue';
+import { useUserStore } from '../store';
+
+const userStore = useUserStore();
 
 function makeCode(length: number) {
   let result = '';
@@ -17,8 +20,13 @@ function makeCode(length: number) {
 }
 
 function handleHost() {
+  userStore.setIdentity('Doctor');
   const roomCode = makeCode(6);
   router.push(`/room/${roomCode}`);
+}
+
+function handleJoin() {
+  userStore.setIdentity('Patient');
 }
 </script>
 
@@ -40,7 +48,7 @@ function handleHost() {
 
             <div class="space-x-4 mt-2 mx-auto">
               <RouterLink to="/join">
-                <Button>Join Room</Button>
+                <Button @click="handleJoin">Join Room</Button>
               </RouterLink>
               <Button variant="secondary" @click="handleHost">Host Room</Button>
             </div>

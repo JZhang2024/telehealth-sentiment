@@ -38,6 +38,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import BarChart from '@/components/BarChart.vue';
 import { createDeepgram } from '@/lib/deepgram';
 import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
+import { useUserStore } from '../store';
+
+//store for user identity: patient or doctor
+const userStore = useUserStore();
 
 const isAnalysisOn = ref(false);
 let fps = 1;
@@ -349,7 +353,7 @@ onUnmounted(async () => {
           </CardContent>
         </Card>
 
-        <BarChart :frameData="frameData" />
+        <BarChart v-if="userStore.identity === 'Doctor'":frameData="frameData" />
 
         <Card>
           <CardHeader>
@@ -385,9 +389,28 @@ onUnmounted(async () => {
 
         <Card>
           <CardHeader>
-            <CardTitle class="text-lg tracking-normal">Summary</CardTitle>
+            <CardTitle v-if="userStore.identity === 'Patient'" class="text-lg tracking-normal">AI Doctor's Note</CardTitle>
+            <CardTitle v-if="userStore.identity === 'Doctor'" class="text-lg tracking-normal">AI Feedback for Doctor</CardTitle>
+
           </CardHeader>
-          <CardContent>
+          <CardContent v-if="userStore.identity === 'Doctor'">
+            <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+            </div>
+          </CardContent>
+          <CardContent v-if="userStore.identity === 'Patient'">
             <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
               {{ item }}
             </p>
@@ -441,8 +464,10 @@ onUnmounted(async () => {
     </div> -->
 
     <div class="w-full py-2 flex justify-between px-8">
+
       <div class="justify-start space-x-3">
-        <Button size="icon" @click="toggleMic">
+      <span>{{ userStore.identity }}</span>
+      <Button size="icon" @click="toggleMic">
           <Mic v-if="micOn" class="size-4" />
           <MicOff v-else class="size-4" />
         </Button>
@@ -453,6 +478,7 @@ onUnmounted(async () => {
       </div>
 
       <div class="justify-center space-x-3">
+        
         <Button
           size="icon"
           @click="toggleAnalysis"
