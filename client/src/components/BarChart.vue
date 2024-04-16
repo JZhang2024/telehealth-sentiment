@@ -85,5 +85,9 @@ export default {
 </script>
 
 <template>
-  <Bar id="my-chart-id" :options="chartOptions" :data="chartData" :height="400" />
+  <Bar
+    :options="chartOptions"
+    :data="chartData"
+    :height="300"
+    class="rounded-lg border bg-card text-card-foreground shadow-sm p-6" />
 </template>

@@ -11,7 +11,8 @@ import {
   VideoOff,
   Captions,
   CaptionsOff,
-  NotebookPen
+  NotebookPen,
+  Sidebar
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -22,7 +23,8 @@ import {
   IRemoteAudioTrack,
   type IAgoraRTCRemoteUser,
   type ICameraVideoTrack,
-  type IMicrophoneAudioTrack
+  type IMicrophoneAudioTrack,
+  getDevices
 } from 'agora-rtc-sdk-ng/esm';
 import axios from 'axios';
 import MicrophoneStream from 'microphone-stream';
@@ -115,12 +117,18 @@ const channel = route.params.channelName;
 const micOn = ref(false);
 const cameraOn = ref(false);
 
+// Track remote user status
+const remoteConnected = ref(false);
+
 // Track video feeds
 const remoteCameraOn = ref(false);
 const remoteMicOn = ref(false);
-const cameraAvailable = ref(false);
+// const cameraAvailable = ref(false);
+const loaded = ref(false);
 
-// Track transcription
+// UI state
+const sidebarOpen = ref(false);
+const summary = ref('');
 const transcribeOn = ref(false);
 const transcriptionStatus = ref<string[]>([]);
 
@@ -166,6 +174,16 @@ async function startDeepgram(audioTrack: MediaStreamTrack) {
   await microphone.start(500);
 }
 
+client.on('user-joined', async (user: IAgoraRTCRemoteUser) => {
+  console.log('joined:', user);
+  remoteConnected.value = true;
+});
+
+client.on('user-left', async (user: IAgoraRTCRemoteUser) => {
+  console.log('left:', user);
+  remoteConnected.value = false;
+});
+
 client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
   await client.subscribe(user, mediaType);
 
@@ -201,40 +219,36 @@ client.on('user-unpublished', async (user: IAgoraRTCRemoteUser, mediaType: 'vide
 
 async function toggleMic() {
   if (!localMicrophoneTrack) {
+    const devices = await getDevices();
+    const audioDevices = devices.filter((device) => device.kind === 'audioinput');
+    // Check if mic is available
+    if (audioDevices.length == 0) {
+      return;
+    }
+
     localMicrophoneTrack = await createMicrophoneAudioTrack();
     await client.publish(localMicrophoneTrack);
   }
+
   localMicrophoneTrack.setEnabled(!micOn.value);
-
-  // if (micOn.value) {
-  //   // Stop speech recognition
-  //   speechToText.stop();
-  // } else {
-  //   // Start speech recognition
-  //   if (speechToText.recognition) {
-  //     speechToText.recognition.onresult = (event) => {
-  //       const transcript = Array.from(event.results)
-  //         .map((result) => result[0])
-  //         .map((result) => result.transcript)
-  //         .join('');
-  //       console.log(transcript);
-  //     };
-  //     speechToText.recognition.onerror = (event) => {
-  //       console.error('Speech recognition error', event.error);
-  //     };
-  //   }
-  //   speechToText.start();
-  // }
-
   micOn.value = !micOn.value;
 }
 
 async function toggleCamera() {
   if (!localCameraTrack) {
+    const devices = await getDevices();
+    const videoDevices = devices.filter((device) => device.kind === 'videoinput');
+    // Check if camera is available
+    if (videoDevices.length == 0) {
+      return;
+    }
+
+    // cameraAvailable.value = true;
     localCameraTrack = await createCameraVideoTrack();
     await client.publish(localCameraTrack);
     localCameraTrack.play('local-video');
   }
+
   localCameraTrack.setEnabled(!cameraOn.value);
   cameraOn.value = !cameraOn.value;
 }
@@ -248,7 +262,8 @@ async function toggleTranscribe() {
         remoteMicrophoneTrack?.getMediaStreamTrack(),
         localMicrophoneTrack?.getMediaStreamTrack()
       );
-      // await startDeepgram(remoteMicrophoneTrack?.getMediaStreamTrack());
+    } else {
+      console.log('remote mic and local mic are not both on');
     }
   } else {
     console.log('ending transcription');
@@ -256,16 +271,6 @@ async function toggleTranscribe() {
     remoteMicStream.pauseRecording();
     localMicStream.pauseRecording();
     transcribeClient?.destroy();
-    // transcribeClient = undefined;
-
-    // transcribeClient?.destroy();
-    // microphone?.stop();
-
-    //call lambda function to summarize the transcript
-    // const transcript = transcriptionStatus.value;
-
-    // const response = await axios.post('/api/summarize',{ transcript: transcript });
-    // console.log(response.data);
   }
 }
 
@@ -278,7 +283,6 @@ async function disconnect() {
   router.push('/');
 }
 
-const summary = ref('');
 async function summarizeTranscript() {
   try {
     const response = await axios.post(
@@ -297,11 +301,15 @@ async function summarizeTranscript() {
   }
 }
 
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value;
+}
+
 onMounted(async () => {
   await client.join(appId, channel as string, null);
   await toggleCamera();
-  await toggleMic();
-  cameraAvailable.value = true;
+  // await toggleMic();
+  loaded.value = true;
 });
 
 onUnmounted(async () => {
@@ -313,149 +321,122 @@ onUnmounted(async () => {
 });
 </script>
 
-<!-- <template>
-  <div class="p-8">
-    <div class="w-1/4 h-[100vh] absolute right-0">
-      <BarChart :frameData="frameData" />
-    </div>
-    <div class="flex flex-wrap gap-4 items-center">
-      <div class="relative w-[25vw] max-w-[720px] min-w-[480px] overflow-hidden">
-        <video id="remote-video" class="aspect-[4/3]" />
-        <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
-          <Button size="icon" @click="toggleAnalysis">
-            <Camera v-if="isAnalysisOn" class="size-4" />
-            <CameraOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
-            <Captions v-if="transcribeOn" class="size-4" />
-            <CaptionsOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" @click="summarizeTranscript">
-            <NotebookPen class="size-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <div class="mt-4 space-y-2">
-      <h1 class="font-semibold">Room: {{ channel }}</h1>
-      <Card v-if="transcriptionStatus.length > 0" class="w-[512px]">
-        <CardHeader>
-          <CardTitle>Transcript</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
-        </CardContent>
-      </Card>
-
-      <Card v-if="summary" class="w-[512px]">
-        <CardHeader>
-          <CardTitle>Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p v-for="(item, index) in summary.split('\n')" :key="index">{{ item }}</p>
-        </CardContent>
-      </Card>
-    </div>
-
-    <div class="w-[50vw] max-w-[480px] min-w-[360px] fixed right-6 bottom-6 m-0">
-      <video id="local-video" class="aspect-video" />
-
-      <div v-if="cameraAvailable" class="absolute bottom-0 right-0 m-3 z-[99]">
-        <div class="space-x-2">
-          <Button size="icon" @click="toggleMic">
-            <Mic v-if="micOn" class="size-4" />
-            <MicOff v-else class="size-4" />
-          </Button>
-
-          <Button size="icon" @click="toggleCamera">
-            <Video v-if="cameraOn" class="size-4" />
-            <VideoOff v-else class="size-4" />
-          </Button>
-
-          <Button size="icon" variant="destructive" @click="disconnect">
-            <LogOut class="size-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template> -->
-
-<!-- GPT -->
 <template>
-  <div class="p-8 flex space-x-2">
-    <!-- Video feeds section -->
-    <div class="flex flex-1 items-center justify-between space-x-2">
-      <div class="flex-1 relative overflow-hidden">
-        <!-- Remote video -->
-        <video id="remote-video" class="w-full h-auto" />
+  <div class="flex flex-col h-screen">
+    <div class="p-8 flex flex-grow space-x-4 overflow-hidden">
+      <!-- Video feeds section -->
+      <div class="flex flex-1 items-center justify-between space-x-2">
+        <div v-if="remoteConnected" class="flex-1 relative overflow-hidden">
+          <video
+            id="remote-video"
+            class="w-full h-auto max-h-[90vh] rounded-lg bg-black aspect-[4/3]" />
+        </div>
 
-        <div v-if="remoteCameraOn" class="space-x-2 absolute top-0 right-0 m-3">
-          <Button size="icon" @click="toggleAnalysis">
-            <Camera v-if="isAnalysisOn" class="size-4" />
-            <CameraOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" v-if="remoteMicOn" @click="toggleTranscribe">
-            <Captions v-if="transcribeOn" class="size-4" />
-            <CaptionsOff v-else class="size-4" />
-          </Button>
-          <Button size="icon" @click="summarizeTranscript">
-            <NotebookPen class="size-4" />
-          </Button>
+        <div class="flex-1 relative overflow-hidden">
+          <video
+            id="local-video"
+            class="w-full h-auto max-h-[90vh] rounded-lg bg-black"
+            :class="{ 'aspect-video': !remoteConnected, 'aspect-[4/3]': remoteConnected }" />
         </div>
       </div>
 
-      <div class="flex-1 relative overflow-hidden">
-        <!-- Local video -->
-        <video id="local-video" class="w-full h-auto" />
-        <div v-if="cameraAvailable" class="absolute top-0 right-0 m-3">
-          <div class="space-x-2">
-            <Button size="icon" @click="toggleMic">
-              <Mic v-if="micOn" class="size-4" />
-              <MicOff v-else class="size-4" />
-            </Button>
-            <Button size="icon" @click="toggleCamera">
-              <Video v-if="cameraOn" class="size-4" />
-              <VideoOff v-else class="size-4" />
-            </Button>
-            <Button size="icon" variant="destructive" @click="disconnect">
-              <LogOut class="size-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Sidebar for transcription and summary -->
-    <div class="w-[25vw] min-w-[300px] h-auto overflow-scroll">
-      <div class="space-y-2 overflow-y-auto">
+      <!-- Sidebar for transcription and summary -->
+      <div v-if="sidebarOpen" class="w-[20vw] space-y-2 overflow-y-auto">
         <Card>
           <CardContent class="pt-6">
-            <p class="font-semibold text-lg">Room: {{ channel }}</p>
+            <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
           </CardContent>
         </Card>
 
         <BarChart :frameData="frameData" />
 
-        <Card v-if="transcriptionStatus.length > 0">
+        <Card>
           <CardHeader>
-            <CardTitle>Transcript</CardTitle>
+            <CardTitle class="text-lg tracking-normal">Transcription</CardTitle>
           </CardHeader>
           <CardContent>
-            <p v-for="(item, index) in transcriptionStatus" :key="index">{{ item }}</p>
+            <p
+              v-if="transcriptionStatus.length > 0"
+              v-for="(item, index) in transcriptionStatus"
+              :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+            </div>
           </CardContent>
         </Card>
 
-        <Card v-if="summary">
+        <Card>
           <CardHeader>
-            <CardTitle>Summary</CardTitle>
+            <CardTitle class="text-lg tracking-normal">Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <p v-for="(item, index) in summary.split('\n')" :key="index">{{ item }}</p>
+            <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
+    </div>
+
+    <!-- Controls bar pinned to buttom -->
+    <div class="w-full p-2 flex justify-center space-x-4">
+      <Button size="icon" @click="toggleMic">
+        <Mic v-if="micOn" class="size-4" />
+        <MicOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="toggleCamera">
+        <Video v-if="cameraOn" class="size-4" />
+        <VideoOff v-else class="size-4" />
+      </Button>
+
+      <Button size="icon" @click="toggleAnalysis" :disabled="!remoteCameraOn">
+        <Camera v-if="isAnalysisOn" class="size-4" />
+        <CameraOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
+        <Captions v-if="transcribeOn" class="size-4" />
+        <CaptionsOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
+        <NotebookPen class="size-4" />
+      </Button>
+
+      <Button size="icon" variant="destructive" @click="disconnect">
+        <LogOut class="size-4" />
+      </Button>
+
+      <Button size="icon" @click="toggleSidebar">
+        <Sidebar class="size-4" />
+      </Button>
     </div>
   </div>
 </template>
