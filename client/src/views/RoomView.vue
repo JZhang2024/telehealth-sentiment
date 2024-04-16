@@ -38,9 +38,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import BarChart from '@/components/BarChart.vue';
 import { createDeepgram } from '@/lib/deepgram';
 import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
-import { useUserStore } from '../store';
+import { useUserStore } from '@/lib/store';
 
-//store for user identity: patient or doctor
+// store for user identity: patient or doctor
 const userStore = useUserStore();
 
 const isAnalysisOn = ref(false);
@@ -132,7 +132,7 @@ const remoteMicOn = ref(false);
 const loaded = ref(false);
 
 // UI state
-const sidebarOpen = ref(false);
+const sidebarOpen = ref(userStore.identity === 'Doctor');
 const summary = ref('');
 const transcribeOn = ref(false);
 const transcriptionStatus = ref<string[]>([]);
@@ -290,9 +290,10 @@ async function disconnect() {
 
 async function summarizeTranscript() {
   try {
+    const endpoint = userStore.identity === 'Patient' ? 'prescribe' : 'bullshit';
     const response = await axios.post(
-      'https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/summarize',
-      { transcript: transcriptionStatus.value }
+      `https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/${endpoint}`,
+      { transcript: transcriptionStatus.value.join('\n') }
     );
     console.log(response);
     if (response.status !== 200) {
@@ -353,9 +354,9 @@ onUnmounted(async () => {
           </CardContent>
         </Card>
 
-        <BarChart v-if="userStore.identity === 'Doctor'":frameData="frameData" />
+        <BarChart v-if="userStore.identity === 'Doctor'" :frameData="frameData" />
 
-        <Card>
+        <!-- <Card>
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">Transcription</CardTitle>
           </CardHeader>
@@ -385,15 +386,13 @@ onUnmounted(async () => {
               <p>Patient: Hey!</p>
             </div>
           </CardContent>
-        </Card>
+        </Card> -->
 
-        <Card>
+        <Card v-if="userStore.identity === 'Patient'">
           <CardHeader>
-            <CardTitle v-if="userStore.identity === 'Patient'" class="text-lg tracking-normal">AI Doctor's Note</CardTitle>
-            <CardTitle v-if="userStore.identity === 'Doctor'" class="text-lg tracking-normal">AI Feedback for Doctor</CardTitle>
-
+            <CardTitle class="text-lg tracking-normal">AI Doctor's Note</CardTitle>
           </CardHeader>
-          <CardContent v-if="userStore.identity === 'Doctor'">
+          <CardContent>
             <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
               {{ item }}
             </p>
@@ -410,7 +409,13 @@ onUnmounted(async () => {
               </p>
             </div>
           </CardContent>
-          <CardContent v-if="userStore.identity === 'Patient'">
+        </Card>
+
+        <Card v-if="userStore.identity === 'Doctor'">
+          <CardHeader>
+            <CardTitle class="text-lg tracking-normal">AI Feedback for Doctor</CardTitle>
+          </CardHeader>
+          <CardContent>
             <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
               {{ item }}
             </p>
@@ -431,43 +436,10 @@ onUnmounted(async () => {
       </div>
     </div>
 
-    <!-- Controls bar pinned to buttom -->
-    <!-- <div class="w-full p-2 flex justify-center space-x-4">
-      <Button size="icon" @click="toggleMic">
-        <Mic v-if="micOn" class="size-4" />
-        <MicOff v-else class="size-4" />
-      </Button>
-      <Button size="icon" @click="toggleCamera">
-        <Video v-if="cameraOn" class="size-4" />
-        <VideoOff v-else class="size-4" />
-      </Button>
-
-      <Button size="icon" @click="toggleAnalysis" :disabled="!remoteCameraOn">
-        <Camera v-if="isAnalysisOn" class="size-4" />
-        <CameraOff v-else class="size-4" />
-      </Button>
-      <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
-        <Captions v-if="transcribeOn" class="size-4" />
-        <CaptionsOff v-else class="size-4" />
-      </Button>
-      <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
-        <NotebookPen class="size-4" />
-      </Button>
-
-      <Button size="icon" variant="destructive" @click="disconnect">
-        <LogOut class="size-4" />
-      </Button>
-
-      <Button size="icon" @click="toggleSidebar">
-        <Sidebar class="size-4" />
-      </Button>
-    </div> -->
-
     <div class="w-full py-2 flex justify-between px-8">
-
       <div class="justify-start space-x-3">
-      <span>{{ userStore.identity }}</span>
-      <Button size="icon" @click="toggleMic">
+        <span>{{ userStore.identity }}</span>
+        <Button size="icon" @click="toggleMic">
           <Mic v-if="micOn" class="size-4" />
           <MicOff v-else class="size-4" />
         </Button>
@@ -478,7 +450,6 @@ onUnmounted(async () => {
       </div>
 
       <div class="justify-center space-x-3">
-        
         <Button
           size="icon"
           @click="toggleAnalysis"
@@ -507,3 +478,4 @@ onUnmounted(async () => {
     </div>
   </div>
 </template>
+../lib/store

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import router from '@/router';
 import Navbar from '@/components/Navbar.vue';
-import { useUserStore } from '../store';
+import { useUserStore } from '@/lib/store';
 
 const userStore = useUserStore();
 
@@ -58,3 +58,4 @@ function handleJoin() {
     </div>
   </div>
 </template>
+../lib/store
