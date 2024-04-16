@@ -12,7 +12,9 @@ import {
   Captions,
   CaptionsOff,
   NotebookPen,
-  Sidebar
+  Sidebar,
+  ScanFace,
+  Gauge
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -37,6 +39,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import BarChart from '@/components/BarChart.vue';
 import { createDeepgram } from '@/lib/deepgram';
 import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
+import VueSpeedometer from 'vue-speedometer';
+import { useUserStore } from '@/lib/store';
+
+// store for user identity: patient or doctor
+const userStore = useUserStore();
 
 const isAnalysisOn = ref(false);
 let fps = 1;
@@ -127,8 +134,9 @@ const remoteMicOn = ref(false);
 const loaded = ref(false);
 
 // UI state
-const sidebarOpen = ref(false);
+const sidebarOpen = ref(userStore.identity === 'Doctor');
 const summary = ref('');
+const bs = ref(5);
 const transcribeOn = ref(false);
 const transcriptionStatus = ref<string[]>([]);
 
@@ -285,9 +293,10 @@ async function disconnect() {
 
 async function summarizeTranscript() {
   try {
+    const endpoint = userStore.identity === 'Patient' ? 'prescribe' : 'feedback';
     const response = await axios.post(
-      'https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/summarize',
-      { transcript: transcriptionStatus.value }
+      `https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/${endpoint}`,
+      { transcript: transcriptionStatus.value.join('\n') }
     );
     console.log(response);
     if (response.status !== 200) {
@@ -301,13 +310,31 @@ async function summarizeTranscript() {
   }
 }
 
+async function bullshitMeter() {
+  try {
+    const response = await axios.post(
+      'https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/bullshit',
+      { transcript: transcriptionStatus.value.join('\n') }
+    );
+    console.log(response);
+    if (response.status !== 200) {
+      console.error('Error summarizing transcript');
+    } else {
+      bs.value = Number(response.data);
+      console.log(summary.value);
+    }
+  } catch (error) {
+    console.error('Error calling Lambda function:', error);
+  }
+}
+
 function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value;
 }
 
 onMounted(async () => {
   await client.join(appId, channel as string, null);
-  await toggleCamera();
+  // await toggleCamera();
   // await toggleMic();
   loaded.value = true;
 });
@@ -341,16 +368,16 @@ onUnmounted(async () => {
       </div>
 
       <!-- Sidebar for transcription and summary -->
-      <div v-if="sidebarOpen" class="w-[20vw] space-y-2 overflow-y-auto">
+      <div v-if="sidebarOpen" class="w-[25vw] space-y-2 overflow-y-auto">
         <Card>
           <CardContent class="pt-6">
             <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
           </CardContent>
         </Card>
 
-        <BarChart :frameData="frameData" />
+        <BarChart v-if="userStore.identity === 'Doctor'" :frameData="frameData" />
 
-        <Card>
+        <!-- <Card>
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">Transcription</CardTitle>
           </CardHeader>
@@ -380,11 +407,51 @@ onUnmounted(async () => {
               <p>Patient: Hey!</p>
             </div>
           </CardContent>
-        </Card>
+        </Card> -->
 
         <Card>
           <CardHeader>
-            <CardTitle class="text-lg tracking-normal">Summary</CardTitle>
+            <CardTitle class="text-lg tracking-normal">BS Meter</CardTitle>
+          </CardHeader>
+          <CardContent class="pt-6 pb-0">
+            <VueSpeedometer
+              :maxValue="10"
+              :value="bs"
+              :segments="10"
+              :needleColor="'black'"
+              :startColor="'green'"
+              :endColor="'red'"
+              :height="200"
+              :width="300" />
+          </CardContent>
+        </Card>
+
+        <Card v-if="userStore.identity === 'Patient'">
+          <CardHeader>
+            <CardTitle class="text-lg tracking-normal">AI Doctor's Note</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card v-if="userStore.identity === 'Doctor'">
+          <CardHeader>
+            <CardTitle class="text-lg tracking-normal">AI Feedback for Doctor</CardTitle>
           </CardHeader>
           <CardContent>
             <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
@@ -407,36 +474,49 @@ onUnmounted(async () => {
       </div>
     </div>
 
-    <!-- Controls bar pinned to buttom -->
-    <div class="w-full p-2 flex justify-center space-x-4">
-      <Button size="icon" @click="toggleMic">
-        <Mic v-if="micOn" class="size-4" />
-        <MicOff v-else class="size-4" />
-      </Button>
-      <Button size="icon" @click="toggleCamera">
-        <Video v-if="cameraOn" class="size-4" />
-        <VideoOff v-else class="size-4" />
-      </Button>
+    <div class="w-full py-2 flex justify-between px-8">
+      <div class="justify-start space-x-3">
+        <span>{{ userStore.identity }}</span>
+        <Button size="icon" @click="toggleMic">
+          <Mic v-if="micOn" class="size-4" />
+          <MicOff v-else class="size-4" />
+        </Button>
+        <Button size="icon" @click="toggleCamera">
+          <Video v-if="cameraOn" class="size-4" />
+          <VideoOff v-else class="size-4" />
+        </Button>
+      </div>
 
-      <Button size="icon" @click="toggleAnalysis" :disabled="!remoteCameraOn">
-        <Camera v-if="isAnalysisOn" class="size-4" />
-        <CameraOff v-else class="size-4" />
-      </Button>
-      <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
-        <Captions v-if="transcribeOn" class="size-4" />
-        <CaptionsOff v-else class="size-4" />
-      </Button>
-      <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
-        <NotebookPen class="size-4" />
-      </Button>
+      <div class="justify-center space-x-3">
+        <Button
+          size="icon"
+          @click="toggleAnalysis"
+          :disabled="!remoteCameraOn"
+          :class="{ 'bg-green-500 hover:bg-green-500/90': isAnalysisOn }">
+          <ScanFace v-if="isAnalysisOn" class="size-4" />
+          <ScanFace v-else class="size-4" />
+        </Button>
+        <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
+          <Captions v-if="transcribeOn" class="size-4" />
+          <CaptionsOff v-else class="size-4" />
+        </Button>
+        <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
+          <NotebookPen class="size-4" />
+        </Button>
+        <Button size="icon" @click="bullshitMeter" :disabled="!remoteCameraOn">
+          <Gauge class="size-4" />
+        </Button>
+      </div>
 
-      <Button size="icon" variant="destructive" @click="disconnect">
-        <LogOut class="size-4" />
-      </Button>
-
-      <Button size="icon" @click="toggleSidebar">
-        <Sidebar class="size-4" />
-      </Button>
+      <div class="justify-end space-x-3">
+        <Button size="icon" @click="toggleSidebar">
+          <Sidebar class="size-4" />
+        </Button>
+        <Button size="icon" variant="destructive" @click="disconnect">
+          <LogOut class="size-4" />
+        </Button>
+      </div>
     </div>
   </div>
 </template>
+../lib/store

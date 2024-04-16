@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import Layout from '@/components/Layout.vue';
 import Navbar from '@/components/Navbar.vue';
 </script>
 
