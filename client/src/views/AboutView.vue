@@ -1,21 +1,20 @@
-<template>
-    <NavbarComponent/>
-    <h1>About</h1>
-</template>
-
-<script>
-import NavbarComponent from '../components/NavbarComponent.vue';
-
-export default {
-    components: {
-        NavbarComponent
-    }, 
-}
+<script setup lang="ts">
+import Layout from '@/components/Layout.vue';
+import Navbar from '@/components/Navbar.vue';
 </script>
 
-<style scoped>
-h1 {
-    font-size: 50px;
-}
+<template>
+  <div>
+    <Navbar currentSection="about" />
 
-</style>
+    <div class="max-w-3xl mx-auto py-10 px-4">
+      <h1 class="text-2xl font-semibold mb-4">About</h1>
+      <p>
+        Cigna Telehealth Sentiment Analysis Webapp is a cutting-edge telehealth solution designed to
+        bring a new dimension of care to virtual healthcare services. As a team of dedicated
+        students, we are creating a web-based application that integrates real-time sentiment
+        analysis into telehealth consultations.
+      </p>
+    </div>
+  </div>
+</template>

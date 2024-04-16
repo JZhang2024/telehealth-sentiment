@@ -1,292 +1,442 @@
-<template>
-  <div id="main-container">
-    <div id="meeting">
-      <div class="content-video">
-        <video
-          v-show="!isVideoSubed || isCameraOn"
-          id="local-video"
-          :class="{
-            'video-fullscreen': !isVideoSubed,
-          }"
-        ></video>
-        <video
-          v-show="isVideoSubed"
-          id="remote-video"
-          :class="{
-            'video-fullscreen': isVideoSubed && !isCameraOn,
-          }"
-        ></video>
-      </div>
-      <div class="content-operation">
-        <button @click="toggleCamera">
-          Turn {{ isCameraOn ? "Off" : "On" }} Camera
-        </button>
-        <br>
-        <button @click="toggleMicrophone">
-          Turn {{ isMicrophoneOn ? "Off" : "On" }} Microphone
-        </button>
-        <br>
-        <button @click="captureFrame">Capture Frame</button> <!-- Added button for capturing frame -->
-      </div>
-      <transcript-box-component></transcript-box-component>
-    </div>
-    <sidebar-component></sidebar-component>
-    <room-code-component v-if="roomCode" :code="roomCode"></room-code-component>
-  </div>
-</template>
-
-<script lang="ts">
-import SidebarComponent from '../components/SidebarComponent.vue';
-import TranscriptBoxComponent from '../components/TranscriptBoxComponent.vue';
-import RoomCodeComponent from '../components/RoomCodeComponent.vue';
-
-export default {
-  components: {
-    SidebarComponent,
-    TranscriptBoxComponent,
-    RoomCodeComponent
-  },
-  data() {
-    return {
-      roomCode: null,
-    };
-  },
-  created() {
-    this.roomCode = this.$route.query.code;
-  },
-  methods: {
-    // Your existing methods
-  }
-}
-</script>
-
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
-import { ref } from "vue";
-import { agoraInfo } from "./storage";
-import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import router from '@/router';
 import {
+  Camera,
+  CameraOff,
+  Mic,
+  MicOff,
+  LogOut,
+  Video,
+  VideoOff,
+  Captions,
+  CaptionsOff,
+  NotebookPen,
+  Sidebar
+} from 'lucide-vue-next';
+import { onMounted, onUnmounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import {
+  createClient,
   createCameraVideoTrack,
   createMicrophoneAudioTrack,
-  type IAgoraRTCClient,
+  IRemoteAudioTrack,
   type IAgoraRTCRemoteUser,
   type ICameraVideoTrack,
   type IMicrophoneAudioTrack,
-} from "agora-rtc-sdk-ng/esm";
+  getDevices
+} from 'agora-rtc-sdk-ng/esm';
+import axios from 'axios';
+import MicrophoneStream from 'microphone-stream';
+import {
+  TranscribeStreamingClient,
+  StartStreamTranscriptionCommand
+} from '@aws-sdk/client-transcribe-streaming';
+import { useSpeechRecognition } from '@vueuse/core';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import BarChart from '@/components/BarChart.vue';
+import { createDeepgram } from '@/lib/deepgram';
+import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
 
-const $emit = defineEmits(["left"]);
+const isAnalysisOn = ref(false);
+let fps = 1;
+let analysisInterval: number | NodeJS.Timeout | undefined;
+let frameData = ref([]);
 
-const client: IAgoraRTCClient = agoraInfo.client!;
-
-if (!client) {
-  $emit("left");
-  throw new Error("client is not initialized");
-}
-
-const isCameraOn = ref(false);
-const isMicrophoneOn = ref(false);
-const isVideoSubed = ref(false);
-const isAudioSubed = ref(false);
-let videoTrack: ICameraVideoTrack | null = null;
-let audioTrack: IMicrophoneAudioTrack | null = null;
-
-client.on("user-published", onPublished);
-client.on("user-unpublished", onUnPublished);
-
-async function onPublished(user: IAgoraRTCRemoteUser, mediaType: "video" | "audio") {
-  await client.subscribe(user, mediaType);
-  if (mediaType === "video") {
-    const remoteVideoTrack = user.videoTrack;
-    if (remoteVideoTrack) {
-      remoteVideoTrack.play("remote-video");
-      isVideoSubed.value = true;
-    }
-  }
-  if (mediaType === "audio") {
-    const remoteAudioTrack = user.audioTrack;
-    if (remoteAudioTrack) {
-      remoteAudioTrack.play();
-      isAudioSubed.value = true;
-    }
-  }
-}
-
-async function onUnPublished(user: IAgoraRTCRemoteUser, mediaType: "video" | "audio") {
-  await client.unsubscribe(user, mediaType);
-  if (mediaType === "video") {
-    isVideoSubed.value = false;
-  }
-  if (mediaType === "audio") {
-    isAudioSubed.value = false;
-  }
-}
-
-async function toggleCamera() {
-  if (!videoTrack) {
-    videoTrack = await createCameraVideoTrack();
-    await client.publish(videoTrack);
-    videoTrack.play("local-video");
-  }
-  if (!isCameraOn.value) {
-    videoTrack.setMuted(false);
+async function toggleAnalysis() {
+  if (!isAnalysisOn.value) {
+    // Start analysis
+    // emotionalResponses = []; // Clear previous emotional responses
+    analysisInterval = setInterval(captureFrame, 1000 / fps);
   } else {
-    videoTrack.setMuted(true);
+    // Stop analysis
+    clearInterval(analysisInterval);
+    // Save emotional responses to a JSON file
+    // saveEmotionalResponsesToJson();
   }
-  isCameraOn.value = !isCameraOn.value;
+  isAnalysisOn.value = !isAnalysisOn.value;
 }
 
-async function toggleMicrophone() {
-  if (!audioTrack) {
-    audioTrack = await createMicrophoneAudioTrack();
-    await client.publish(audioTrack);
-  }
-  if (!isMicrophoneOn.value) {
-    await audioTrack.setMuted(false);
-  } else {
-    await audioTrack.setMuted(true);
-  }
-  isMicrophoneOn.value = !isMicrophoneOn.value;
-}
-
-// Function to send video frame data to the server for analysis
-async function sendFrameData(imageData) {
+async function sendFrameData(imageData: string) {
   try {
     // Send image data to your API Gateway endpoint
-    const response = await axios.post("https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/DetectFaces", { imageData });
-
-    // Handle response from the server
-    console.log("Response from server:", response.data);
+    const response = await axios.post(
+      'https://di3v6oiwwe.execute-api.us-east-2.amazonaws.com/test/DetectFaces',
+      { imageData }
+    );
+    console.log('Response from server:', response.data);
+    return response.data;
   } catch (error) {
-    console.error("Error sending frame data:", error);
+    console.error('Error sending frame data:', (error as any).response.data);
+    return error;
   }
 }
 
-function captureFrame() {
-  const videoElement = document.getElementById("remote-video");
-
+async function captureFrame() {
+  //const videoElement = document.getElementById("remote-video"); uncomment this line to capture frame from remote video feed
+  const videoElement = document.getElementById('remote-video'); // Capture frame from local video feed (testing purposes only)
   // Check if video element exists and is an HTMLVideoElement
   if (!videoElement || !(videoElement instanceof HTMLVideoElement)) {
-    console.error("Remote video element not found or is not a video element.");
+    console.error('Remote video element not found or is not a video element.');
     return;
   }
-
   // Check if video metadata is loaded
   if (videoElement.readyState < videoElement.HAVE_METADATA) {
-    console.error("Video metadata not loaded yet.");
+    console.error('Video metadata not loaded yet.');
     return;
   }
-
-  const canvas = document.createElement("canvas"); // Create canvas element
-  const context = canvas.getContext("2d");
-
+  const canvas = document.createElement('canvas'); // Create canvas element
+  const context = canvas.getContext('2d');
   // Check if context is available
   if (!context) {
-    console.error("Canvas context not available.");
+    console.error('Canvas context not available.');
     return;
   }
-
   // Set canvas dimensions to match video feed
   canvas.width = videoElement.videoWidth;
   canvas.height = videoElement.videoHeight;
-
   // Draw the video frame onto the canvas
   context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
   // Get image data from the canvas
-  const imageData = canvas.toDataURL("image/jpeg");
-
-  // Log the imageData to inspect it
-  console.log("Captured imageData:", imageData);
-
+  const imageData = canvas.toDataURL('image/jpeg');
   // Send image data to Lambda via API Gateway
-  sendFrameData(imageData);
+  try {
+    const emotions = await sendFrameData(imageData);
+    frameData.value = emotions;
+  } catch (error) {
+    console.error('Error sending frame data:', error);
+    // Handle error if necessary
+  }
 }
 
-function leave() {
+const appId = import.meta.env.VITE_AGORA_APP_ID;
+const route = useRoute();
+const channel = route.params.channelName;
+
+// Track the mic/video state - Turn on Mic and Camera On
+const micOn = ref(false);
+const cameraOn = ref(false);
+
+// Track remote user status
+const remoteConnected = ref(false);
+
+// Track video feeds
+const remoteCameraOn = ref(false);
+const remoteMicOn = ref(false);
+// const cameraAvailable = ref(false);
+const loaded = ref(false);
+
+// UI state
+const sidebarOpen = ref(false);
+const summary = ref('');
+const transcribeOn = ref(false);
+const transcriptionStatus = ref<string[]>([]);
+
+// Local audio tracks
+let localMicrophoneTrack: IMicrophoneAudioTrack | null = null;
+let localCameraTrack: ICameraVideoTrack | null = null;
+
+// Remote audio track
+let remoteMicrophoneTrack: IRemoteAudioTrack | undefined;
+
+// Speech recongition
+// const speechToText = useSpeechRecognition({
+//   lang: 'en-US',
+//   interimResults: true,
+//   continuous: true
+// });
+
+// Transcribe
+let transcribeClient: TranscribeStreamingClient | undefined;
+let remoteMicStream: MicrophoneStream;
+let localMicStream: MicrophoneStream;
+
+// Deepgram
+let microphone: MediaRecorder | null;
+
+// Agora client info
+const client = createClient({ mode: 'rtc', codec: 'vp8' });
+
+async function startTranscription(remoteTrack: MediaStreamTrack, localTrack: MediaStreamTrack) {
+  transcribeClient = createTranscribeClient();
+  [remoteMicStream, localMicStream] = createMicStreams(remoteTrack, localTrack);
+  await startTranscribe(
+    transcribeClient,
+    remoteMicStream,
+    localMicStream,
+    transcribeOn,
+    transcriptionStatus
+  );
+}
+
+async function startDeepgram(audioTrack: MediaStreamTrack) {
+  microphone = createDeepgram(audioTrack);
+  await microphone.start(500);
+}
+
+client.on('user-joined', async (user: IAgoraRTCRemoteUser) => {
+  console.log('joined:', user);
+  remoteConnected.value = true;
+});
+
+client.on('user-left', async (user: IAgoraRTCRemoteUser) => {
+  console.log('left:', user);
+  remoteConnected.value = false;
+});
+
+client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
+  await client.subscribe(user, mediaType);
+
+  // Handle remote video
+  if (mediaType === 'video' && user.videoTrack) {
+    user.videoTrack.play('remote-video');
+    remoteCameraOn.value = true;
+  }
+  // Handle remote audio
+  if (mediaType === 'audio' && user.audioTrack) {
+    user.audioTrack.play();
+    remoteMicOn.value = true;
+    remoteMicrophoneTrack = user.audioTrack;
+
+    // console.log('starting transcription');
+    // await startTranscription(user.audioTrack.getMediaStreamTrack());
+  }
+});
+
+client.on('user-unpublished', async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
+  await client.unsubscribe(user, mediaType);
+
+  if (mediaType === 'video') {
+    user.videoTrack?.stop();
+    remoteCameraOn.value = false;
+  }
+  if (mediaType === 'audio') {
+    user.audioTrack?.stop();
+    remoteMicOn.value = false;
+    remoteMicrophoneTrack = undefined;
+  }
+});
+
+async function toggleMic() {
+  if (!localMicrophoneTrack) {
+    const devices = await getDevices();
+    const audioDevices = devices.filter((device) => device.kind === 'audioinput');
+    // Check if mic is available
+    if (audioDevices.length == 0) {
+      return;
+    }
+
+    localMicrophoneTrack = await createMicrophoneAudioTrack();
+    await client.publish(localMicrophoneTrack);
+  }
+
+  localMicrophoneTrack.setEnabled(!micOn.value);
+  micOn.value = !micOn.value;
+}
+
+async function toggleCamera() {
+  if (!localCameraTrack) {
+    const devices = await getDevices();
+    const videoDevices = devices.filter((device) => device.kind === 'videoinput');
+    // Check if camera is available
+    if (videoDevices.length == 0) {
+      return;
+    }
+
+    // cameraAvailable.value = true;
+    localCameraTrack = await createCameraVideoTrack();
+    await client.publish(localCameraTrack);
+    localCameraTrack.play('local-video');
+  }
+
+  localCameraTrack.setEnabled(!cameraOn.value);
+  cameraOn.value = !cameraOn.value;
+}
+
+async function toggleTranscribe() {
+  if (!transcribeOn.value) {
+    if (remoteMicrophoneTrack && localMicrophoneTrack) {
+      console.log('starting transcription');
+      transcribeOn.value = true;
+      await startTranscription(
+        remoteMicrophoneTrack?.getMediaStreamTrack(),
+        localMicrophoneTrack?.getMediaStreamTrack()
+      );
+    } else {
+      console.log('remote mic and local mic are not both on');
+    }
+  } else {
+    console.log('ending transcription');
+    transcribeOn.value = false;
+    remoteMicStream.pauseRecording();
+    localMicStream.pauseRecording();
+    transcribeClient?.destroy();
+  }
+}
+
+async function disconnect() {
+  localCameraTrack?.setEnabled(false);
+  localMicrophoneTrack?.setEnabled(false);
+  localMicrophoneTrack?.stop();
+  localCameraTrack?.stop();
   client.leave();
-  videoTrack && videoTrack.stop();
-  audioTrack && audioTrack.stop();
-  agoraInfo.client = undefined;
-  $emit("left");
+  router.push('/');
 }
 
-onUnmounted(() => {
-  console.log("left")
-  leave();
-})
+async function summarizeTranscript() {
+  try {
+    const response = await axios.post(
+      'https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/summarize',
+      { transcript: transcriptionStatus.value }
+    );
+    console.log(response);
+    if (response.status !== 200) {
+      console.error('Error summarizing transcript');
+    } else {
+      summary.value = response.data;
+      console.log(summary.value);
+    }
+  } catch (error) {
+    console.error('Error calling Lambda function:', error);
+  }
+}
+
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value;
+}
+
+onMounted(async () => {
+  await client.join(appId, channel as string, null);
+  await toggleCamera();
+  // await toggleMic();
+  loaded.value = true;
+});
+
+onUnmounted(async () => {
+  localCameraTrack?.setEnabled(false);
+  localMicrophoneTrack?.setEnabled(false);
+  localMicrophoneTrack?.stop();
+  localCameraTrack?.stop();
+  client.leave();
+});
 </script>
 
-<style lang="less">
-#main-container {
-display: flex;
-height: 100vh;
-border: 1px solid black;
-}
+<template>
+  <div class="flex flex-col h-screen">
+    <div class="p-8 flex flex-grow space-x-4 overflow-hidden">
+      <!-- Video feeds section -->
+      <div class="flex flex-1 items-center justify-between space-x-2">
+        <div v-if="remoteConnected" class="flex-1 relative overflow-hidden">
+          <video
+            id="remote-video"
+            class="w-full h-auto max-h-[90vh] rounded-lg bg-black aspect-[4/3]" />
+        </div>
 
+        <div class="flex-1 relative overflow-hidden">
+          <video
+            id="local-video"
+            class="w-full h-auto max-h-[90vh] rounded-lg bg-black"
+            :class="{ 'aspect-video': !remoteConnected, 'aspect-[4/3]': remoteConnected }" />
+        </div>
+      </div>
 
+      <!-- Sidebar for transcription and summary -->
+      <div v-if="sidebarOpen" class="w-[20vw] space-y-2 overflow-y-auto">
+        <Card>
+          <CardContent class="pt-6">
+            <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
+          </CardContent>
+        </Card>
 
-#video-transcript-container {
-display: flex;
-flex-direction: column;
-width: 75%;
-}
+        <BarChart :frameData="frameData" />
 
-.video-container {
-  width: 100%;
-  height: 75vh;
-  border: 2px solid blue; 
-}
-.video-container video {
-  width: 100%;
-  height: 100%;
-}
+        <Card>
+          <CardHeader>
+            <CardTitle class="text-lg tracking-normal">Transcription</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              v-if="transcriptionStatus.length > 0"
+              v-for="(item, index) in transcriptionStatus"
+              :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+              <p>Doctor: Hello!</p>
+              <p>Patient: Hey!</p>
+            </div>
+          </CardContent>
+        </Card>
 
-#meeting {
-  width: 100%;
-  height: 100%;
+        <Card>
+          <CardHeader>
+            <CardTitle class="text-lg tracking-normal">Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
+              {{ item }}
+            </p>
+            <div v-else>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+              <p>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
+                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
+                quo possimus, assumenda nobis illum? Eaque, praesentium.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
 
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+    <!-- Controls bar pinned to buttom -->
+    <div class="w-full p-2 flex justify-center space-x-4">
+      <Button size="icon" @click="toggleMic">
+        <Mic v-if="micOn" class="size-4" />
+        <MicOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="toggleCamera">
+        <Video v-if="cameraOn" class="size-4" />
+        <VideoOff v-else class="size-4" />
+      </Button>
 
-  .content-video {
-    display: flex;
-    flex-grow: 1;
-    max-height: 80%;
-    align-items: center;
+      <Button size="icon" @click="toggleAnalysis" :disabled="!remoteCameraOn">
+        <Camera v-if="isAnalysisOn" class="size-4" />
+        <CameraOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
+        <Captions v-if="transcribeOn" class="size-4" />
+        <CaptionsOff v-else class="size-4" />
+      </Button>
+      <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
+        <NotebookPen class="size-4" />
+      </Button>
 
-    .video-fullscreen {
-      max-width: 100%;
-      max-height: 100%;
-    }
-    #local-video,
-    #remote-video {
-      aspect-ratio: 16/9;
+      <Button size="icon" variant="destructive" @click="disconnect">
+        <LogOut class="size-4" />
+      </Button>
 
-      margin: 4px;
-    //   display: flex;
-      flex-grow: 1;
-
-      border-radius: 4px;
-      background-color: #666666;
-    }
-  }
-//   .content-operation {
-//     position: absolute;
-//     bottom: 0;
-//     width: 100%;
-//     display: flex;
-//     justify-content: center;
-//     align-items: center;
-//     padding: 20px 0;
-
-//     background-color: #efefef;
-//   }
-}
-
-button {
-  margin-bottom: 10px;
-}
-</style>
-
-  
+      <Button size="icon" @click="toggleSidebar">
+        <Sidebar class="size-4" />
+      </Button>
+    </div>
+  </div>
+</template>

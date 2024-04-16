@@ -1,22 +1,43 @@
 {
-  "name": "testing-vue-create",
-  "version": "0.0.0",
+  "name": "video-chat",
   "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vue-tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@unocss/reset": "^0.56.5",
-    "agora-rtc-sdk-ng": "^4.19.3",
-    "socket.io-client": "^4.7.2",
-    "vue": "^3.3.4",
-    "vue-router": "^4.2.4"
+    "@aws-sdk/client-transcribe": "^3.540.0",
+    "@aws-sdk/client-transcribe-streaming": "^3.540.0",
+    "@aws-sdk/credential-providers": "^3.540.0",
+    "@deepgram/sdk": "^3.2.0",
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@vueuse/core": "^10.9.0",
+    "agora-rtc-sdk-ng": "^4.20.2",
+    "aws-sdk": "^2.1594.0",
+    "chart.js": "^4.4.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "lucide-vue-next": "^0.363.0",
+    "microphone-stream": "^6.0.1",
+    "radix-vue": "^1.5.3",
+    "tailwind-merge": "^2.2.2",
+    "tailwindcss-animate": "^1.0.7",
+    "vite-plugin-node-polyfills": "^0.21.0",
+    "vite-tsconfig-paths": "^4.3.2",
+    "vue": "^3.4.21",
+    "vue-chartjs": "^5.3.1",
+    "vue-router": "^4.3.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^4.3.4",
-    "less": "^4.2.0",
-    "vite": "^4.4.9"
+    "@types/node": "^20.11.30",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "autoprefixer": "^10.4.19",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vue-tsc": "^2.0.6"
   }
 }

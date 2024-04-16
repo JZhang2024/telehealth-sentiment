@@ -1,10 +1,11 @@
-<template>
-  <div id="app-wrapper">
-    <RouterView />
-  </div>
-</template>
+<script setup lang="ts">
+import { RouterView } from 'vue-router';
+import { setLogLevel } from 'agora-rtc-sdk-ng/esm';
 
-<script setup>
-import { RouterView } from "vue-router";
-import HomeView from "./views/HomeView.vue";
+// Disable Agora logging
+setLogLevel(4);
 </script>
+
+<template>
+  <RouterView />
+</template>
