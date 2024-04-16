@@ -13,7 +13,8 @@ import {
   CaptionsOff,
   NotebookPen,
   Sidebar,
-  ScanFace
+  ScanFace,
+  Gauge
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -135,6 +136,7 @@ const loaded = ref(false);
 // UI state
 const sidebarOpen = ref(userStore.identity === 'Doctor');
 const summary = ref('');
+const bs = ref(5);
 const transcribeOn = ref(false);
 const transcriptionStatus = ref<string[]>([]);
 
@@ -291,7 +293,7 @@ async function disconnect() {
 
 async function summarizeTranscript() {
   try {
-    const endpoint = userStore.identity === 'Patient' ? 'prescribe' : 'bullshit';
+    const endpoint = userStore.identity === 'Patient' ? 'prescribe' : 'feedback';
     const response = await axios.post(
       `https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/${endpoint}`,
       { transcript: transcriptionStatus.value.join('\n') }
@@ -301,6 +303,24 @@ async function summarizeTranscript() {
       console.error('Error summarizing transcript');
     } else {
       summary.value = response.data;
+      console.log(summary.value);
+    }
+  } catch (error) {
+    console.error('Error calling Lambda function:', error);
+  }
+}
+
+async function bullshitMeter() {
+  try {
+    const response = await axios.post(
+      'https://1dhs1a0o4l.execute-api.us-east-1.amazonaws.com/prod/bullshit',
+      { transcript: transcriptionStatus.value.join('\n') }
+    );
+    console.log(response);
+    if (response.status !== 200) {
+      console.error('Error summarizing transcript');
+    } else {
+      bs.value = Number(response.data);
       console.log(summary.value);
     }
   } catch (error) {
@@ -395,8 +415,8 @@ onUnmounted(async () => {
           </CardHeader>
           <CardContent class="pt-6 pb-0">
             <VueSpeedometer
-              :maxValue="100"
-              :value="50"
+              :maxValue="10"
+              :value="bs"
               :segments="10"
               :needleColor="'black'"
               :startColor="'green'"
@@ -482,6 +502,9 @@ onUnmounted(async () => {
         </Button>
         <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
           <NotebookPen class="size-4" />
+        </Button>
+        <Button size="icon" @click="bullshitMeter" :disabled="!remoteCameraOn">
+          <Gauge class="size-4" />
         </Button>
       </div>
 
