@@ -39,6 +39,7 @@ import BarChart from '@/components/BarChart.vue';
 import { createDeepgram } from '@/lib/deepgram';
 import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
 import { useUserStore } from '../store';
+import VueSpeedometer from "vue-speedometer";
 
 //store for user identity: patient or doctor
 const userStore = useUserStore();
@@ -355,35 +356,21 @@ onUnmounted(async () => {
 
         <BarChart v-if="userStore.identity === 'Doctor'":frameData="frameData" />
 
-        <Card>
+        <Card v-if="userStore.identity === 'Doctor'">
           <CardHeader>
-            <CardTitle class="text-lg tracking-normal">Transcription</CardTitle>
+            <CardTitle class="text-lg tracking-normal">BS Meter</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p
-              v-if="transcriptionStatus.length > 0"
-              v-for="(item, index) in transcriptionStatus"
-              :key="index">
-              {{ item }}
-            </p>
-            <div v-else>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-              <p>Doctor: Hello!</p>
-              <p>Patient: Hey!</p>
-            </div>
+          <CardContent class="pt-6 pb-0">
+            <VueSpeedometer
+              :maxValue="100"
+              :value="50"
+              :segments="10"
+              :needleColor="'black'"
+              :startColor="'green'"
+              :endColor="'red'"
+              :height="200"
+              :width="300"
+            />
           </CardContent>
         </Card>
 

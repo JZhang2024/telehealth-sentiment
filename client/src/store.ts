@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 export const useUserStore = defineStore({
   id: 'user',
   state: () => ({
-    identity: 'Patient', // default value
+    identity: 'Doctor', // default value
   }),
   actions: {
     setIdentity(identity: string) {
