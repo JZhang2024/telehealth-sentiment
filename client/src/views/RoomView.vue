@@ -12,7 +12,8 @@ import {
   Captions,
   CaptionsOff,
   NotebookPen,
-  Sidebar
+  Sidebar,
+  ScanFace
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -307,7 +308,7 @@ function toggleSidebar() {
 
 onMounted(async () => {
   await client.join(appId, channel as string, null);
-  await toggleCamera();
+  // await toggleCamera();
   // await toggleMic();
   loaded.value = true;
 });
@@ -341,7 +342,7 @@ onUnmounted(async () => {
       </div>
 
       <!-- Sidebar for transcription and summary -->
-      <div v-if="sidebarOpen" class="w-[20vw] space-y-2 overflow-y-auto">
+      <div v-if="sidebarOpen" class="w-[25vw] space-y-2 overflow-y-auto">
         <Card>
           <CardContent class="pt-6">
             <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
@@ -408,7 +409,7 @@ onUnmounted(async () => {
     </div>
 
     <!-- Controls bar pinned to buttom -->
-    <div class="w-full p-2 flex justify-center space-x-4">
+    <!-- <div class="w-full p-2 flex justify-center space-x-4">
       <Button size="icon" @click="toggleMic">
         <Mic v-if="micOn" class="size-4" />
         <MicOff v-else class="size-4" />
@@ -437,6 +438,46 @@ onUnmounted(async () => {
       <Button size="icon" @click="toggleSidebar">
         <Sidebar class="size-4" />
       </Button>
+    </div> -->
+
+    <div class="w-full py-2 flex justify-between px-8">
+      <div class="justify-start space-x-3">
+        <Button size="icon" @click="toggleMic">
+          <Mic v-if="micOn" class="size-4" />
+          <MicOff v-else class="size-4" />
+        </Button>
+        <Button size="icon" @click="toggleCamera">
+          <Video v-if="cameraOn" class="size-4" />
+          <VideoOff v-else class="size-4" />
+        </Button>
+      </div>
+
+      <div class="justify-center space-x-3">
+        <Button
+          size="icon"
+          @click="toggleAnalysis"
+          :disabled="!remoteCameraOn"
+          :class="{ 'bg-green-500 hover:bg-green-500/90': isAnalysisOn }">
+          <ScanFace v-if="isAnalysisOn" class="size-4" />
+          <ScanFace v-else class="size-4" />
+        </Button>
+        <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
+          <Captions v-if="transcribeOn" class="size-4" />
+          <CaptionsOff v-else class="size-4" />
+        </Button>
+        <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
+          <NotebookPen class="size-4" />
+        </Button>
+      </div>
+
+      <div class="justify-end space-x-3">
+        <Button size="icon" @click="toggleSidebar">
+          <Sidebar class="size-4" />
+        </Button>
+        <Button size="icon" variant="destructive" @click="disconnect">
+          <LogOut class="size-4" />
+        </Button>
+      </div>
     </div>
   </div>
 </template>
