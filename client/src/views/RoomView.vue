@@ -384,22 +384,20 @@ onUnmounted(async () => {
           </CardContent>
         </Card>
 
-        <Card v-if="userStore.identity === 'Doctor'" class="w-full">
+        <Card v-if="frameData.length > 0 && userStore.identity === 'Doctor'" class="w-full">
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">Patient Facial Analysis</CardTitle>
           </CardHeader>
-          <CardContent class="flex flex-row space-x-2">
+          <CardContent class="flex flex-col space-x-2">
             <div class="w-full">
               <PieChart v-if="isPieChart" :frameData="frameData" />
               <BarChart v-else :frameData="frameData" />
             </div>
 
-            <div class="flex flex-col justify-center">
-              <Button size="icon" variant="tertiary" @click="toggleChartType">
-                <BarChartBig v-if="isPieChart" class="size-4" />
-                <PieChartBig v-else class="size-4" />
-              </Button>
-            </div>
+            <Button size="icon" variant="tertiary" @click="toggleChartType">
+              <BarChartBig v-if="isPieChart" class="size-4" />
+              <PieChartBig v-else class="size-4" />
+            </Button>
           </CardContent>
         </Card>
 
