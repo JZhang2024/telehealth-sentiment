@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Video } from 'lucide-vue-next';
 import { RouterLink } from 'vue-router';
 
 defineProps<{
@@ -8,19 +7,18 @@ defineProps<{
 </script>
 
 <template>
-  <div class="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-6">
-    <nav class="gap-6 text-sm font-medium flex flex-row items-center">
-      <RouterLink to="/" class="flex items-center gap-2 font-semibold text-base">
-        <Video class="size-6" />
-        <span class="sr-only">Telehealth</span>
-      </RouterLink>
+  <div class="container mx-auto px-5">
+    <nav class="flex space-x-10 font-medium justify-between py-12 items-center">
+      <div>
+                <a href="/"><img src="../assets/cigna.png" alt="Site Logo"></a>
+      </div>
       <RouterLink
         to="/"
         :class="{
           'text-foreground': currentSection === 'home',
           'text-muted-foreground': currentSection !== 'home'
         }"
-        class="transition-colors hover:text-foreground">
+        class="uppercase transition-colors hover:text-foreground">
         Home
       </RouterLink>
       <RouterLink
@@ -29,7 +27,7 @@ defineProps<{
           'text-foreground': currentSection === 'about',
           'text-muted-foreground': currentSection !== 'about'
         }"
-        class="transition-colors hover:text-foreground">
+        class="uppercase transition-colors hover:text-foreground">
         About
       </RouterLink>
       <RouterLink
@@ -38,9 +36,10 @@ defineProps<{
           'text-foreground': currentSection === 'contact',
           'text-muted-foreground': currentSection !== 'contact'
         }"
-        class="transition-colors hover:text-foreground">
+        class="uppercase transition-colors hover:text-foreground">
         Contact
       </RouterLink>
+      
     </nav>
   </div>
 </template>
