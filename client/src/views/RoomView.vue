@@ -136,7 +136,7 @@ const loaded = ref(false);
 // UI state
 const sidebarOpen = ref(userStore.identity === 'Doctor');
 const summary = ref('');
-const bs = ref(5);
+const bs = ref<number | null>(null);
 const transcribeOn = ref(false);
 const transcriptionStatus = ref<string[]>([]);
 
@@ -146,13 +146,6 @@ let localCameraTrack: ICameraVideoTrack | null = null;
 
 // Remote audio track
 let remoteMicrophoneTrack: IRemoteAudioTrack | undefined;
-
-// Speech recongition
-// const speechToText = useSpeechRecognition({
-//   lang: 'en-US',
-//   interimResults: true,
-//   continuous: true
-// });
 
 // Transcribe
 let transcribeClient: TranscribeStreamingClient | undefined;
@@ -248,6 +241,7 @@ async function toggleCamera() {
     const videoDevices = devices.filter((device) => device.kind === 'videoinput');
     // Check if camera is available
     if (videoDevices.length == 0) {
+      console.log('camera unavailable');
       return;
     }
 
@@ -334,8 +328,8 @@ function toggleSidebar() {
 
 onMounted(async () => {
   await client.join(appId, channel as string, null);
-  // await toggleCamera();
-  // await toggleMic();
+  await toggleCamera();
+  await toggleMic();
   loaded.value = true;
 });
 
@@ -349,33 +343,42 @@ onUnmounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen">
+  <div class="flex flex-col h-screen bg-neutral-800">
     <div class="p-8 flex flex-grow space-x-4 overflow-hidden">
       <!-- Video feeds section -->
       <div class="flex flex-1 items-center justify-between space-x-2">
         <div v-if="remoteConnected" class="flex-1 relative overflow-hidden">
           <video
             id="remote-video"
-            class="w-full h-auto max-h-[90vh] rounded-lg bg-black aspect-[4/3]" />
+            class="w-full h-auto max-h-[90vh] rounded-lg bg-neutral-700 aspect-[4/3]" />
         </div>
 
         <div class="flex-1 relative overflow-hidden">
           <video
+            :hidden="!cameraOn"
             id="local-video"
-            class="w-full h-auto max-h-[90vh] rounded-lg bg-black"
+            class="w-full h-auto max-h-[90vh] rounded-lg"
             :class="{ 'aspect-video': !remoteConnected, 'aspect-[4/3]': remoteConnected }" />
+          <div
+            :hidden="cameraOn"
+            class="w-full h-auto max-h-[90vh] rounded-lg aspect-[4/3] bg-neutral-700"
+            :class="{ 'aspect-video': !remoteConnected, 'aspect-[4/3]': remoteConnected }"></div>
         </div>
       </div>
 
       <!-- Sidebar for transcription and summary -->
-      <div v-if="sidebarOpen" class="w-[25vw] space-y-2 overflow-y-auto">
+      <div
+        v-if="sidebarOpen"
+        class="w-[25vw] space-y-2 overflow-y-auto bg-secondary p-4 rounded-lg">
         <Card>
           <CardContent class="pt-6">
             <p class="font-semibold text-lg">Room Code: {{ channel }}</p>
           </CardContent>
         </Card>
 
-        <BarChart v-if="userStore.identity === 'Doctor'" :frameData="frameData" />
+        <BarChart
+          v-if="frameData.length > 0 && userStore.identity === 'Doctor'"
+          :frameData="frameData" />
 
         <!-- <Card>
           <CardHeader>
@@ -409,7 +412,7 @@ onUnmounted(async () => {
           </CardContent>
         </Card> -->
 
-        <Card>
+        <Card v-if="bs && userStore.identity === 'Doctor'">
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">BS Meter</CardTitle>
           </CardHeader>
@@ -426,90 +429,80 @@ onUnmounted(async () => {
           </CardContent>
         </Card>
 
-        <Card v-if="userStore.identity === 'Patient'">
+        <Card v-if="summary && userStore.identity === 'Patient'">
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">AI Doctor's Note</CardTitle>
           </CardHeader>
           <CardContent>
-            <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
+            <p v-for="(item, index) in summary.split('\n')" :key="index">
               {{ item }}
             </p>
-            <div v-else>
-              <p>
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
-                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
-                quo possimus, assumenda nobis illum? Eaque, praesentium.
-              </p>
-              <p>
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
-                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
-                quo possimus, assumenda nobis illum? Eaque, praesentium.
-              </p>
-            </div>
           </CardContent>
         </Card>
 
-        <Card v-if="userStore.identity === 'Doctor'">
+        <Card v-if="summary && userStore.identity === 'Doctor'">
           <CardHeader>
             <CardTitle class="text-lg tracking-normal">AI Feedback for Doctor</CardTitle>
           </CardHeader>
           <CardContent>
-            <p v-if="summary" v-for="(item, index) in summary.split('\n')" :key="index">
+            <p v-for="(item, index) in summary.split('\n')" :key="index">
               {{ item }}
             </p>
-            <div v-else>
-              <p>
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
-                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
-                quo possimus, assumenda nobis illum? Eaque, praesentium.
-              </p>
-              <p>
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ullam quod animi quas et
-                omnis laboriosam velit exercitationem explicabo error reiciendis. Incidunt fuga ipsa
-                quo possimus, assumenda nobis illum? Eaque, praesentium.
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
     </div>
 
-    <div class="w-full py-2 flex justify-between px-8">
-      <div class="justify-start space-x-3">
-        <span>{{ userStore.identity }}</span>
-        <Button size="icon" @click="toggleMic">
-          <Mic v-if="micOn" class="size-4" />
-          <MicOff v-else class="size-4" />
-        </Button>
-        <Button size="icon" @click="toggleCamera">
-          <Video v-if="cameraOn" class="size-4" />
-          <VideoOff v-else class="size-4" />
-        </Button>
+    <div class="w-full py-4 flex justify-between px-8">
+      <div class="justify-start space-x-3 dark">
+        <p class="font-medium text-primary">{{ userStore.identity }}</p>
       </div>
 
       <div class="justify-center space-x-3">
+        <Button size="icon" @click="toggleMic" :variant="micOn ? 'secondary' : 'destructive'">
+          <Mic v-if="micOn" class="size-4" />
+          <MicOff v-else class="size-4" />
+        </Button>
+        <Button size="icon" @click="toggleCamera" :variant="cameraOn ? 'secondary' : 'destructive'">
+          <Video v-if="cameraOn" class="size-4" />
+          <VideoOff v-else class="size-4" />
+        </Button>
+
         <Button
           size="icon"
-          @click="toggleAnalysis"
-          :disabled="!remoteCameraOn"
-          :class="{ 'bg-green-500 hover:bg-green-500/90': isAnalysisOn }">
-          <ScanFace v-if="isAnalysisOn" class="size-4" />
-          <ScanFace v-else class="size-4" />
-        </Button>
-        <Button size="icon" @click="toggleTranscribe" :disabled="!remoteCameraOn">
+          @click="toggleTranscribe"
+          :variant="transcribeOn ? 'secondary' : 'tertiary'"
+          :disabled="!remoteConnected">
           <Captions v-if="transcribeOn" class="size-4" />
           <CaptionsOff v-else class="size-4" />
         </Button>
-        <Button size="icon" @click="summarizeTranscript" :disabled="!remoteCameraOn">
-          <NotebookPen class="size-4" />
+        <Button
+          v-if="userStore.identity === 'Doctor'"
+          size="icon"
+          @click="toggleAnalysis"
+          :variant="isAnalysisOn ? 'secondary' : 'tertiary'"
+          :disabled="!remoteConnected">
+          <ScanFace class="size-4" />
         </Button>
-        <Button size="icon" @click="bullshitMeter" :disabled="!remoteCameraOn">
+        <Button
+          v-if="userStore.identity === 'Doctor'"
+          size="icon"
+          @click="bullshitMeter"
+          variant="tertiary"
+          :disabled="!remoteConnected">
           <Gauge class="size-4" />
+        </Button>
+        <Button
+          size="icon"
+          @click="summarizeTranscript"
+          variant="tertiary"
+          :disabled="!remoteConnected">
+          <NotebookPen class="size-4" />
         </Button>
       </div>
 
       <div class="justify-end space-x-3">
-        <Button size="icon" @click="toggleSidebar">
+        <Button size="icon" @click="toggleSidebar" variant="tertiary">
           <Sidebar class="size-4" />
         </Button>
         <Button size="icon" variant="destructive" @click="disconnect">
@@ -519,4 +512,3 @@ onUnmounted(async () => {
     </div>
   </div>
 </template>
-../lib/store
