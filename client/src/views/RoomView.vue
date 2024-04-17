@@ -15,7 +15,8 @@ import {
   Sidebar,
   ScanFace,
   Gauge,
-  BarChartBig
+  BarChartBig,
+  PieChart as PieChartBig
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -383,14 +384,24 @@ onUnmounted(async () => {
           </CardContent>
         </Card>
 
-        <div v-if="frameData.length > 0 && userStore.identity === 'Doctor'">
-          <div v-if="isPieChart" class="w-full">
-            <PieChart :frameData="frameData" />
-          </div>
-          <div v-else class="w-full">
-            <BarChart :frameData="frameData" />
-          </div>
-        </div>
+        <Card v-if="userStore.identity === 'Doctor'" class="w-full">
+          <CardHeader>
+            <CardTitle class="text-lg tracking-normal">Patient Facial Analysis</CardTitle>
+          </CardHeader>
+          <CardContent class="flex flex-row space-x-2">
+            <div class="w-full">
+              <PieChart v-if="isPieChart" :frameData="frameData" />
+              <BarChart v-else :frameData="frameData" />
+            </div>
+
+            <div class="flex flex-col justify-center">
+              <Button size="icon" variant="tertiary" @click="toggleChartType">
+                <BarChartBig v-if="isPieChart" class="size-4" />
+                <PieChartBig v-else class="size-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <!-- <Card>
           <CardHeader>
@@ -510,13 +521,6 @@ onUnmounted(async () => {
           variant="tertiary"
           :disabled="!remoteConnected">
           <NotebookPen class="size-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant="tertiary"
-          @click="toggleChartType"
-          :disabled="!remoteConnected">
-          <BarChartBig class="size-4" />
         </Button>
       </div>
 
