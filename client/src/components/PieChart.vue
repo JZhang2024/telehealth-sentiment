@@ -1,20 +1,17 @@
 <script>
-import { Bar } from 'vue-chartjs';
+import { Pie } from 'vue-chartjs';
 import {
   Chart as ChartJS,
-  Title,
   Tooltip,
   Legend,
-  BarElement,
-  CategoryScale,
-  LinearScale
+  ArcElement
 } from 'chart.js';
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
+ChartJS.register(Tooltip, Legend, ArcElement);
 
 export default {
-  name: 'BarChart',
-  components: { Bar },
+  name: 'PieChart',
+  components: { Pie },
   props: {
     frameData: {
       type: Array,
@@ -25,13 +22,23 @@ export default {
     return {
       chartData: {
         labels: ['Calm', 'Sad', 'Surprised', 'Confused', 'Happy', 'Angry', 'Disgusted', 'Fear'],
-        datasets: [{ data: [0, 0, 0, 0, 0, 0, 0, 0] }]
+        datasets: [{ backgroundColor: [
+        '#a8bdbf', // Calm
+        '#175981', // Sad
+        '#e4ff16', // Surprised
+        '#d19bad', // Confused
+        '#ff9a55', // Happy
+        '#a91834', // Angry
+        '#8ab852', // Disgusted
+        '#8c9eb3' // Fear
+      ],
+      data: [10, 10, 10, 10, 10, 10, 20, 20] }]
       },
       chartOptions: {
         responsive: true,
         plugins: {
           legend: {
-            display: false
+            display: true
           }
         }
       }
@@ -85,7 +92,7 @@ export default {
 </script>
 
 <template>
-  <Bar
+  <Pie
     :options="chartOptions"
     :data="chartData"
     :height="300"

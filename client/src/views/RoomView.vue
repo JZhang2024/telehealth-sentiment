@@ -14,7 +14,8 @@ import {
   NotebookPen,
   Sidebar,
   ScanFace,
-  Gauge
+  Gauge,
+  BarChartBig
 } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -41,6 +42,7 @@ import { createDeepgram } from '@/lib/deepgram';
 import { createTranscribeClient, startTranscribe, createMicStreams } from '@/lib/transcribe';
 import VueSpeedometer from 'vue-speedometer';
 import { useUserStore } from '@/lib/store';
+import PieChart from '@/components/PieChart.vue';
 
 // store for user identity: patient or doctor
 const userStore = useUserStore();
@@ -49,6 +51,7 @@ const isAnalysisOn = ref(false);
 let fps = 1;
 let analysisInterval: number | NodeJS.Timeout | undefined;
 let frameData = ref([]);
+const isPieChart = ref(true);
 
 async function toggleAnalysis() {
   if (!isAnalysisOn.value) {
@@ -326,6 +329,10 @@ function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value;
 }
 
+function toggleChartType() {
+  isPieChart.value = !isPieChart.value;
+}
+
 onMounted(async () => {
   await client.join(appId, channel as string, null);
   await toggleCamera();
@@ -376,9 +383,14 @@ onUnmounted(async () => {
           </CardContent>
         </Card>
 
-        <BarChart
-          v-if="frameData.length > 0 && userStore.identity === 'Doctor'"
-          :frameData="frameData" />
+        <div v-if="frameData.length > 0 && userStore.identity === 'Doctor'">
+          <div v-if="isPieChart" class="w-full">
+            <PieChart :frameData="frameData" />
+          </div>
+          <div v-else class="w-full">
+            <BarChart :frameData="frameData" />
+          </div>
+        </div>
 
         <!-- <Card>
           <CardHeader>
@@ -498,6 +510,13 @@ onUnmounted(async () => {
           variant="tertiary"
           :disabled="!remoteConnected">
           <NotebookPen class="size-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="tertiary"
+          @click="toggleChartType"
+          :disabled="!remoteConnected">
+          <BarChartBig class="size-4" />
         </Button>
       </div>
 
