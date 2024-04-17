@@ -49,10 +49,39 @@ import PieChart from '@/components/PieChart.vue';
 const userStore = useUserStore();
 
 const isAnalysisOn = ref(false);
-let fps = 1;
+let fps = 5;
+let count = 0;
 let analysisInterval: number | NodeJS.Timeout | undefined;
-let frameData = ref([]);
+const frameData = ref<{ Type: string; Confidence: number; }[]>([]);
 const isPieChart = ref(true);
+
+let emptyData = [
+    { "Type": "CALM", "Confidence": 0 },
+    { "Type": "SAD", "Confidence": 0 },
+    { "Type": "SURPRISED", "Confidence": 0 },
+    { "Type": "CONFUSED", "Confidence": 0 },
+    { "Type": "HAPPY", "Confidence": 0 },
+    { "Type": "ANGRY", "Confidence": 0 },
+    { "Type": "DISGUSTED", "Confidence": 0 },
+    { "Type": "FEAR", "Confidence": 0 }
+];
+
+let newData = [
+    { "Type": "CALM", "Confidence": 0 },
+    { "Type": "SAD", "Confidence": 0 },
+    { "Type": "SURPRISED", "Confidence": 0 },
+    { "Type": "CONFUSED", "Confidence": 0 },
+    { "Type": "HAPPY", "Confidence": 0 },
+    { "Type": "ANGRY", "Confidence": 0 },
+    { "Type": "DISGUSTED", "Confidence": 0 },
+    { "Type": "FEAR", "Confidence": 0 }
+];
+
+interface EmotionData {
+  Type: string;
+  Confidence: string;
+  // Add more properties if needed
+}
 
 async function toggleAnalysis() {
   if (!isAnalysisOn.value) {
@@ -111,9 +140,25 @@ async function captureFrame() {
   // Get image data from the canvas
   const imageData = canvas.toDataURL('image/jpeg');
   // Send image data to Lambda via API Gateway
+  
+  count += 1;
   try {
-    const emotions = await sendFrameData(imageData);
-    frameData.value = emotions;
+    const emotions: EmotionData[] = await sendFrameData(imageData);
+
+    emotions.forEach(emotion => {
+      const index = newData.findIndex(data => data.Type === emotion.Type);
+      if (index !== -1) {
+        newData[index].Confidence += parseFloat(emotion.Confidence) / fps;
+      }
+    });
+    
+    //console.log(count)
+    if (count >= fps) {
+      console.log("sending data")
+      frameData.value = newData
+      count = 0
+      newData = JSON.parse(JSON.stringify(emptyData));
+    }
   } catch (error) {
     console.error('Error sending frame data:', error);
     // Handle error if necessary
