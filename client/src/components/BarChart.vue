@@ -70,7 +70,7 @@ export default {
       newData.forEach((item) => {
         const index = labels.findIndex((label) => label.toUpperCase() === item.Type.toUpperCase());
         if (index !== -1) {
-          data[index] = parseFloat(item.Confidence);
+          data[index] = item.Confidence;
         }
       });
 
