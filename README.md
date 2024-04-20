@@ -1,37 +1,67 @@
-# CSE 4940 2023 Fall Team 32
+## Telehealth Sentiment Analysis App
 
-Basic outline to get you started with your repo.
+**Description**
 
-## Issues Tab
+This project is a telehealth sentiment analysis app built with Vue.js, AWS Transcribe, AWS Rekognition, Agora WebRTC, and the OpenAI API. It provides a platform for real-time video consultations with sentiment analysis and doctor's note generation capabilities.
 
-Some issues representing tasks for this class.
+**Features**
 
-## Actions Tab
+* **Telehealth Experience:** Enables video consultations between patients and doctors using Agora WebRTC.
+* **Speech-to-Text Transcription:** AWS Transcribe converts spoken conversations into text for further analysis.
+* **Sentiment Analysis:** Analyzes the transcribed text to gauge the overall sentiment of the conversation.
+* **Facial Recognition and Analysis (Optional):** AWS Rekognition can be integrated to detect and analyze facial expressions during consultations (requires additional configuration).
+* **Doctor's Notes Generation:** Leverages the OpenAI API to generate doctor's notes or feedback summaries from the transcribed text. AWS API Gateway and Lambda functions orchestrate communication with the OpenAI API.
 
-You can set this up to automatically run tests whenever you commit. I have not played with this much, but it's probably a good idea to add some testing to your project.
+**Technologies Used**
 
-## Projects Tab
+* Front-end: Vue.js
+* Speech-to-Text: AWS Transcribe
+* Facial Recognition/Analysis: AWS Rekognition
+* Real-time Video Communication: Agora WebRTC
+* Doctor's Note Generation (AI): OpenAI API
+* API Management: AWS API Gateway
+* Serverless Functions: AWS Lambda
 
-Project management board and with issues added. You can view the Project in timeline-view or boards-view.
+**Installation**
 
-## Wiki Tab
+**Prerequisites**
 
-Basic template for a wiki. Remember, your third "paper" will be your repository wiki.
+* Node.js (v21.7.7)
 
-## Usage
+**Steps**
 
-### Client
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/JZhang2024/telehealth-sentiment.git
+   ```
+2. **Install Dependencies:**
+   ```bash
+   npm install  # or yarn install
+   ```
 
-```
-cd client
-npm run dev
-```
+**Usage**
 
-### Server
+1. **Configuration:**
+   - Update .env files with your:
+     - Agora WebRTC app ID
+     - AWS credentials
+     - OpenAI API key
+2. **Development Server:**
+   ```bash
+   npm run dev
+   ```
+   - Your app will typically be accessible at `http://localhost:8080` in your web browser.
 
-```
-cd server
-npm run start
-```
+**Additional Notes**
 
-If you want to use `bun` instead of `node`, just replace `npm` with `bun`.
+* **OpenAI API:** This project demonstrates usage for doctor's note generation. You'll need an OpenAI account and API key.
+* **Security Considerations:**
+   - Manage API keys and credentials securely.
+   - Implement additional security measures (user authentication/authorization) for production.
+* **Further Development:**
+   - Enhance error handling and logging.
+   - Customize UI and features for specific telehealth use cases.
+
+**Disclaimer**
+
+This project is for educational purposes only. It's not intended for production use without proper security considerations and potential modifications to meet specific telehealth requirements and regulations.
