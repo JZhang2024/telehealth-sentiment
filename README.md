@@ -22,6 +22,14 @@ This project is a telehealth sentiment analysis app built with Vue.js, AWS Trans
 * API Management: AWS API Gateway
 * Serverless Functions: AWS Lambda
 
+
+**Screenshots of webapp in use**
+![Screenshot from 2024-07-16 12-11-53](https://github.com/user-attachments/assets/9c7bd9a9-781f-47e4-8a71-44d1810da43a)
+![Screenshot from 2024-07-16 12-12-32](https://github.com/user-attachments/assets/9435ac95-ce6a-4856-978d-06238decb5df)
+![Screenshot from 2024-07-16 12-12-51](https://github.com/user-attachments/assets/560c5a51-007f-4dbd-9e1f-72249205ac2b)
+
+
+
 **Installation**
 
 **Prerequisites**
@@ -46,6 +54,7 @@ This project is a telehealth sentiment analysis app built with Vue.js, AWS Trans
      - Agora WebRTC app ID
      - AWS credentials
      - OpenAI API key
+   - Configure AWS Lambda functions in your AWS account. Example function is shown in main.py.
 2. **Development Server:**
    ```bash
    npm run dev
